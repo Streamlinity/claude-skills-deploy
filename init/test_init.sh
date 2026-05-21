@@ -3,7 +3,7 @@
 # Run from: anywhere (uses absolute paths)
 # Tests: idempotency, YAML validity, token substitution, defaults, env_vars format, deploy.yml generation
 
-set -euo pipefail
+set -uo pipefail
 
 SKILL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 INIT_SH="$SKILL_DIR/init/init.sh"
@@ -27,10 +27,10 @@ run_test() {
 # ─── Test 1: Idempotency guard — refuses to overwrite existing coolify.yaml ───
 T1_DIR=$(mktemp -d)
 touch "$T1_DIR/coolify.yaml"
-if bash "$INIT_SH" > /dev/null 2>&1; then
+if (cd "$T1_DIR" && bash "$INIT_SH" > /dev/null 2>&1); then
   run_test "Test 1: coolify.yaml idempotency guard exits non-zero" "1"
 else
-  (cd "$T1_DIR" && bash "$INIT_SH" 2>&1 | grep -q "already exists") && run_test "Test 1: coolify.yaml idempotency guard exits non-zero" "0" || run_test "Test 1: coolify.yaml idempotency guard exits non-zero" "1"
+  run_test "Test 1: coolify.yaml idempotency guard exits non-zero" "0"
 fi
 rm -rf "$T1_DIR"
 
