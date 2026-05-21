@@ -1,0 +1,27 @@
+# ============================================================================
+# Doppler CLI install + ENTRYPOINT — paste into your Dockerfile.
+# See: https://github.com/anatesan-stream/claude-skills-deploy/blob/main/docs/setup-guide.md
+#
+# Place the RUN block in your final/runtime stage (after base image is chosen
+# and before USER nonroot if you set one — Doppler CLI needs to be on PATH).
+# ============================================================================
+
+# Install Doppler CLI (~3MB static binary, no dependencies)
+RUN curl -Ls --tlsv1.2 --proto "=https" -o /usr/local/bin/doppler \
+    https://cli.doppler.com/download/linux/amd64 \
+ && chmod +x /usr/local/bin/doppler
+
+# Persistent fallback cache — Coolify mounts /etc/doppler-cache as a Docker volume.
+# If Doppler API is unreachable at container start, the last cached secrets are used.
+# The volume is created by /setup-coolify provision (see provision.sh).
+RUN mkdir -p /etc/doppler-cache
+
+# All secrets injected at container start by Doppler.
+# DOPPLER_TOKEN env var (service token, scoped per env) is set by Coolify.
+# --fallback writes/reads from the persistent volume mount.
+ENTRYPOINT ["doppler", "run", "--fallback", "/etc/doppler-cache/secrets.json", "--"]
+
+# CMD is your normal app start command, e.g.:
+#   CMD ["node", "server.js"]
+#   CMD ["npm", "start"]
+#   CMD ["python", "-m", "uvicorn", "app:app", "--host", "0.0.0.0", "--port", "3000"]
