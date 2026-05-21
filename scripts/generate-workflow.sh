@@ -2,6 +2,10 @@
 # generate-workflow.sh — Emit .github/workflows/deploy.yml from coolify.yaml.
 # Implements GHCR same-image promotion. Smoke test is the gate: staging pass → auto-promote to prod.
 #
+# build.context and build.dockerfile are read from coolify.yaml.
+# Defaults: context = '.' (repo root), dockerfile = './Dockerfile'.
+# For nested-app repos (e.g. ai-upskilling/skillmap), set build.context: ./skillmap in coolify.yaml.
+#
 # IMPORTANT — no env-specific --build-arg is passed.
 # The whole point of same-image promotion is that staging and production run the
 # IDENTICAL image bytes (same SHA tag). Baking NEXT_PUBLIC_BASE_URL (or any other
@@ -32,6 +36,8 @@ print(f\"REGISTRY_IMAGE='{d.get('registry',{}).get('image','')}'\")
 print(f\"RETENTION='{d.get('registry',{}).get('retention_tags',5)}'\")
 print(f\"STAGING_DOMAIN='{d.get('environments',{}).get('staging',{}).get('domain','')}'\")
 print(f\"PROD_DOMAIN='{d.get('environments',{}).get('production',{}).get('domain','')}'\")
+print(f\"BUILD_CONTEXT='{d.get('build',{}).get('context','.')}'\"  )
+print(f\"BUILD_DOCKERFILE='{d.get('build',{}).get('dockerfile','./Dockerfile')}'\"  )
 staging = d.get('coolify_app_ids',{}).get('staging') or ''
 prod = d.get('coolify_app_ids',{}).get('production') or ''
 print(f\"STAGING_APP_UUID='{staging}'\")
@@ -87,8 +93,8 @@ jobs:
           password: \${{ secrets.GITHUB_TOKEN }}
       - uses: docker/build-push-action@v6
         with:
-          context: ./skillmap
-          file: ./skillmap/Dockerfile
+          context: $BUILD_CONTEXT
+          file: $BUILD_DOCKERFILE
           push: true
           tags: $REGISTRY_IMAGE:\${{ steps.tag.outputs.short_sha }}
           # No build-args — same image, runtime env injection via Doppler.
@@ -170,6 +176,7 @@ if grep -qE 'NEXT_PUBLIC_BASE_URL\s*=' "$OUT_PATH" 2>/dev/null; then
 fi
 
 echo "WROTE $OUT_PATH"
+echo "  build context: $BUILD_CONTEXT  dockerfile: $BUILD_DOCKERFILE"
 echo "  build: ghcr.io tag = commit short SHA (NO build-args — runtime env via Doppler)"
 echo "  deploy-staging: same tag -> staging app $STAGING_APP_UUID"
 echo "  deploy-production: SAME tag -> production app $PROD_APP_UUID (auto after staging smoke test)"
