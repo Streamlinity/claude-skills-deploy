@@ -1,0 +1,44 @@
+{
+  "version": "1.0",
+  "timestamp": "2026-05-22T17:44:19.461Z",
+  "phase": "02",
+  "phase_name": "test-framework",
+  "phase_dir": ".planning/phases/02-test-framework",
+  "plan": null,
+  "task": "UAT-01",
+  "total_tasks": 2,
+  "status": "paused",
+  "completed_tasks": [
+    {"id": "02-01", "name": "Harden test/e2e.sh (env vars, conditional teardown, JSON report)", "status": "done", "commit": "e26af93"},
+    {"id": "02-02", "name": "Create test/validate-workflow.sh (VALID-01 + VALID-02)", "status": "done", "commit": "543c211"},
+    {"id": "fix-01", "name": "Guard STAGING_DOMAIN in write_report() against unbound variable", "status": "done", "commit": "ada4230"},
+    {"id": "fix-02", "name": "Fix Doppler config names stg/prd in e2e.sh", "status": "done", "commit": "b9e2eda"},
+    {"id": "fix-03", "name": "Rename test image to flat GHCR path csd-hello-world", "status": "done", "commit": "b9e2eda"}
+  ],
+  "remaining_tasks": [
+    {"id": "UAT-01", "name": "Live E2E run — 10/10 steps pass", "status": "blocked"},
+    {"id": "UAT-02", "name": "E2E_SERVER/E2E_BASE_DOMAIN override test", "status": "deferred"}
+  ],
+  "blockers": [
+    {
+      "description": "Coolify deploy fails at Step 7 in ~11s — container exits unhealthy (app UUID eivrumxrijou619cvrzolukn, deployment syfmc0nf4q0r2zier0a4z6zb)",
+      "type": "technical",
+      "workaround": "Check Coolify dashboard at https://coolify.cicd.streamlinity.com for deployment logs — preserved with --keep"
+    }
+  ],
+  "human_actions_pending": [],
+  "decisions": [
+    {"decision": "GHCR_TOKEN in Doppler claude-skills-deploy/stg", "rationale": "operator credential, any team member can push test image"},
+    {"decision": "Flat GHCR image name csd-hello-world (not nested)", "rationale": "GitHub API PATCH visibility 404s on nested package names with /"},
+    {"decision": "Doppler stg/prd not staging/production", "rationale": "Doppler default template creates stg/prd; staging/production env creation fails silently"},
+    {"decision": "VPS GHCR auth via docker login as root", "rationale": "image is private; Coolify daemon uses /root/.docker/config.json for pulls"}
+  ],
+  "uncommitted_files": [
+    ".planning/phases/02-test-framework/02-01-PLAN.md",
+    ".planning/phases/02-test-framework/02-02-PLAN.md",
+    ".planning/phases/02-test-framework/02-VERIFICATION.md",
+    "test/results/"
+  ],
+  "next_action": "Check Coolify dashboard for deployment syfmc0nf4q0r2zier0a4z6zb logs on app eivrumxrijou619cvrzolukn, fix container startup failure, re-run bash test/e2e.sh",
+  "context_notes": "Phase 2 code is correct — 7/7 automated checks pass, 9/10 E2E steps pass. Only obstacle is the Coolify container deploy. The hello-world image is nginx:alpine on port 3000 with /api/health. provision.sh sets health_check_port=3000 and health_check_path=/api/health. Fast failure (~11s) suggests startup issue not health check timeout."
+}
