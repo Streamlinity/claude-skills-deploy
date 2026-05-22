@@ -135,7 +135,7 @@ jobs:
         run: |
           for i in \$(seq 1 12); do
             sleep 30
-            if curl -sfS "https://\$STAGING_DOMAIN/" -o /dev/null; then
+            if curl -sfS "https://\$STAGING_DOMAIN/api/health" -o /dev/null; then
               echo "Staging healthy on attempt \$i"; exit 0
             fi
             echo "Wait \$i/12 ..."
@@ -143,7 +143,7 @@ jobs:
           echo "Staging did not respond within 6min" >&2; exit 1
 
   deploy-production:
-    needs: [smoke-staging, build]
+    needs: [deploy-staging, build]
     runs-on: ubuntu-latest
     env:
       COOLIFY_API_KEY: \${{ secrets.COOLIFY_API_KEY }}
