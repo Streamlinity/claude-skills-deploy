@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: verifying
-stopped_at: Completed 01-bug-fixes-01-03-PLAN.md
-last_updated: "2026-05-22T07:36:06.006Z"
+status: executing
+stopped_at: Completed 02-test-framework-02-02-PLAN.md
+last_updated: "2026-05-22T16:31:43.944Z"
 last_activity: 2026-05-22
 progress:
   total_phases: 3
   completed_phases: 1
-  total_plans: 3
-  completed_plans: 3
+  total_plans: 6
+  completed_plans: 4
   percent: 0
 ---
 
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-21)
 
 **Core value:** A developer can clone this repo, run one command, see a working hello-world deployment on their Coolify server, and trust the skill is correct before using it for a real application.
-**Current focus:** Phase 01 — bug-fixes
+**Current focus:** Phase 02 — test-framework
 
 ## Current Position
 
-Phase: 02
-Plan: Not started
-Status: Phase complete — ready for verification
+Phase: 02 (test-framework) — EXECUTING
+Plan: 2 of 2
+Status: Ready to execute
 Last activity: 2026-05-22
 
 Progress: [░░░░░░░░░░] 0%
@@ -55,6 +55,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 01-bug-fixes P01 | 2 | 2 tasks | 1 files |
 | Phase 01-bug-fixes P02 | 1 | 2 tasks | 1 files |
 | Phase 01-bug-fixes P03 | 3 | 2 tasks | 2 files |
+| Phase 02-test-framework P02 | 5 | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -72,6 +73,8 @@ Recent decisions affecting current work:
 - [Phase 01-bug-fixes]: D-04: Per-key error format: ERROR: doppler secrets get KEY_NAME failed: <stderr>
 - [Phase 01-bug-fixes]: D-06: Read optional server_name from coolify.json with 'localhost' default — same python3 json.load pattern as ssh_host
 - [Phase 01-bug-fixes]: D-07: Document server_name in Optional Fields subsection and Backward Compatibility section following ssh_host migration block pattern
+- [Phase 02-test-framework]: Inline Python heredoc with single-quoted PY marker prevents bash variable expansion in Python f-strings
+- [Phase 02-test-framework]: VALID-02 error accumulation: collect all broken needs refs before exiting, matching validate.sh convention
 
 ### Pending Todos
 
@@ -84,6 +87,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-22T07:32:29.769Z
-Stopped at: Completed 01-bug-fixes-01-03-PLAN.md
+Last session: 2026-05-22T16:31:43.942Z
+Stopped at: Completed 02-test-framework-02-02-PLAN.md
 Resume file: None

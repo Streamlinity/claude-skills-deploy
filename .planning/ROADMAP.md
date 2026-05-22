@@ -43,7 +43,7 @@ deployment on their Coolify server.
   5. `bash test/validate-workflow.sh <path-to-deploy.yml>` exits non-zero and prints the offending reference when a `needs:` list contains a job name that does not exist in the workflow
 **Plans**: 2 plans
 - [ ] 02-01-PLAN.md — Modify test/e2e.sh: env var config (E2E_SERVER/E2E_BASE_DOMAIN), conditional cleanup, JSON report, completion summary (TEST-01..05)
-- [ ] 02-02-PLAN.md — Create test/validate-workflow.sh: YAML syntax + needs-reference resolution checks (VALID-01, VALID-02)
+- [x] 02-02-PLAN.md — Create test/validate-workflow.sh: YAML syntax + needs-reference resolution checks (VALID-01, VALID-02)
 
 **UI hint**: no
 
@@ -64,5 +64,5 @@ deployment on their Coolify server.
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Bug Fixes | 2/3 | In Progress|  |
-| 2. Test Framework | 0/2 | Not started | - |
+| 2. Test Framework | 1/2 | In Progress|  |
 | 3. Cleanup Script | 0/1 | Not started | - |

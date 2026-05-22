@@ -21,8 +21,8 @@
 
 ### Workflow Validation
 
-- [ ] **VALID-01**: Running `bash test/validate-workflow.sh <path-to-deploy.yml>` reports YAML syntax validity (parses without error)
-- [ ] **VALID-02**: `validate-workflow.sh` checks that every job name referenced in a `needs:` list exists as a defined job in the same workflow — exits non-zero and prints the offending reference if not
+- [x] **VALID-01**: Running `bash test/validate-workflow.sh <path-to-deploy.yml>` reports YAML syntax validity (parses without error)
+- [x] **VALID-02**: `validate-workflow.sh` checks that every job name referenced in a `needs:` list exists as a defined job in the same workflow — exits non-zero and prints the offending reference if not
 
 ### Cleanup
 
@@ -69,8 +69,8 @@
 | TEST-03 | Phase 2 | Pending |
 | TEST-04 | Phase 2 | Pending |
 | TEST-05 | Phase 2 | Pending |
-| VALID-01 | Phase 2 | Pending |
-| VALID-02 | Phase 2 | Pending |
+| VALID-01 | Phase 2 | Complete |
+| VALID-02 | Phase 2 | Complete |
 | CLEAN-01 | Phase 3 | Pending |
 | CLEAN-02 | Phase 3 | Pending |
 
