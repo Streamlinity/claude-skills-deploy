@@ -17,6 +17,44 @@ Coolify + Doppler deployment skills for Claude Code. One command bootstraps any 
 
 ---
 
+## Quick start
+
+The happy path in 5 commands. Full prerequisites (Doppler CLI, Python, an actual Coolify server) are documented below — see [Prerequisites](#prerequisites) and [docs/setup-guide.md](./docs/setup-guide.md) before running any of these against a real server.
+
+1. **Install the skill**
+   ```bash
+   git clone https://github.com/anatesan-stream/claude-skills-deploy.git ~/.claude/skills/setup-coolify
+   ```
+   Drops the skill into your personal Claude Code skills directory. After this, `/setup-coolify` is available in any Claude Code session.
+
+2. **Configure your Coolify server (one-time per machine + server pair)**
+   ```
+   /setup-coolify init
+   ```
+   Interactive prompts populate `~/.claude/coolify.json` with the Coolify URL, API key, Doppler account, and SSH host for one server alias.
+
+3. **Bootstrap a repo**
+   ```bash
+   bash ~/.claude/skills/setup-coolify/init/init.sh
+   ```
+   Run from the target repo's root. Writes `./coolify.yaml` and `./.github/workflows/deploy.yml`.
+
+4. **Dry-run check**
+   ```
+   /setup-coolify validate
+   ```
+   Verifies every `env_vars` key in `coolify.yaml` exists in Doppler and the Coolify API is reachable. No mutations.
+
+5. **Provision**
+   ```
+   /setup-coolify
+   ```
+   Creates Coolify staging + production apps, wires Doppler service tokens, mounts the Doppler-cache Docker volume. Idempotent. After this, push to `main` triggers the first deploy via the generated `.github/workflows/deploy.yml`.
+
+Need more? See [docs/setup-guide.md](./docs/setup-guide.md) for the full VPS + Coolify + Doppler stand-up walkthrough, or [docs/fork-guide.md](./docs/fork-guide.md) for adding a second domain to an existing setup.
+
+---
+
 ## Prerequisites
 
 Before running the install:
