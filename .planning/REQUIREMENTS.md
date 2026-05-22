@@ -26,8 +26,8 @@
 
 ### Cleanup
 
-- [ ] **CLEAN-01**: Operator can run `bash test/cleanup-deployment.sh <report-file>` to delete the Coolify project and apps created by an E2E test run, using the app IDs recorded in the specified test report file
-- [ ] **CLEAN-02**: `cleanup-deployment.sh` prints a confirmation of what it deleted (project name, app names, UUIDs) and exits 0 on success
+- [x] **CLEAN-01**: Operator can run `bash test/cleanup-deployment.sh <report-file>` to delete the Coolify project and apps created by an E2E test run, using the app IDs recorded in the specified test report file
+- [x] **CLEAN-02**: `cleanup-deployment.sh` prints a confirmation of what it deleted (project name, app names, UUIDs) and exits 0 on success
 
 ## v2 Requirements
 
@@ -71,8 +71,8 @@
 | TEST-05 | Phase 2 | Complete |
 | VALID-01 | Phase 2 | Complete |
 | VALID-02 | Phase 2 | Complete |
-| CLEAN-01 | Phase 3 | Pending |
-| CLEAN-02 | Phase 3 | Pending |
+| CLEAN-01 | Phase 3 | Complete |
+| CLEAN-02 | Phase 3 | Complete |
 
 **Coverage:**
 - v1 requirements: 12 total

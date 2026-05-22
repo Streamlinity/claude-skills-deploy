@@ -77,7 +77,7 @@ deployment on their Coolify server.
   1. `bash test/cleanup-deployment.sh <report-file>` deletes the Coolify project and staging app whose UUIDs are recorded in the specified report file
   2. The script prints a confirmation listing each deleted resource (project name, app names, UUIDs) and exits 0
 **Plans**: 1 plan
-- [ ] 03-01-PLAN.md — Create test/cleanup-deployment.sh: report-file-driven teardown of Coolify apps + project + Docker volumes + Doppler project (CLEAN-01, CLEAN-02)
+- [x] 03-01-PLAN.md — Create test/cleanup-deployment.sh: report-file-driven teardown of Coolify apps + project + Docker volumes + Doppler project (CLEAN-01, CLEAN-02)
 
 **UI hint**: no
 

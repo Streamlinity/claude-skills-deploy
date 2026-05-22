@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: verifying
-stopped_at: Completed 02.1-01-PLAN.md
-last_updated: "2026-05-22T19:34:14.277Z"
+stopped_at: Completed 03-01-PLAN.md
+last_updated: "2026-05-22T20:01:01.715Z"
 last_activity: 2026-05-22
 progress:
   total_phases: 4
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 10
-  completed_plans: 9
+  completed_plans: 10
   percent: 0
 ---
 
@@ -21,12 +21,12 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-21)
 
 **Core value:** A developer can clone this repo, run one command, see a working hello-world deployment on their Coolify server, and trust the skill is correct before using it for a real application.
-**Current focus:** Phase 02.1 — new-user-onboarding
+**Current focus:** Phase 03 — cleanup-script
 
 ## Current Position
 
-Phase: 03
-Plan: Not started
+Phase: 03 (cleanup-script) — EXECUTING
+Plan: 1 of 1
 Status: Phase complete — ready for verification
 Last activity: 2026-05-22
 
@@ -61,6 +61,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 02.1-new-user-onboarding P04 | 1 | 1 tasks | 1 files |
 | Phase 02.1-new-user-onboarding P02 | 2 | 2 tasks | 1 files |
 | Phase 02.1-new-user-onboarding P01 | 2 | 2 tasks | 1 files |
+| Phase 03-cleanup-script P01 | 3 | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -88,6 +89,9 @@ Recent decisions affecting current work:
 - [Phase 02.1-new-user-onboarding]: SKILL.md step 6: provision.sh does not trigger deploy; first deploy fires via git push to main activating deploy.yml
 - [Phase 02.1-new-user-onboarding]: E2E_SERVER/E2E_BASE_DOMAIN: accumulate both missing-var errors before exit 1, guard skips when --server flag sets SERVER_ALIAS
 - [Phase 02.1-new-user-onboarding]: E2E_IMAGE default preserved — public domain-neutral fixture image; only adds explanatory comment with maintainer origin and sentinel string
+- [Phase 03-cleanup-script]: D-02 deletion order: staging app first, then production app, then Coolify project, then Docker volumes, then Doppler project — safe order avoids cascade ambiguity
+- [Phase 03-cleanup-script]: eval python3 block validates all six required report fields at startup before any DELETE — clear named error messages for each failure mode (missing file, bad JSON, missing fields)
+- [Phase 03-cleanup-script]: Fixed e2e.sh write_report() to emit coolify_project_uuid, ssh_host, doppler_project matching D-03 schema — old output used project_uuid and omitted the other two fields
 
 ### Roadmap Evolution
 
@@ -104,6 +108,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-22T19:29:56.568Z
-Stopped at: Completed 02.1-01-PLAN.md
+Last session: 2026-05-22T20:01:01.712Z
+Stopped at: Completed 03-01-PLAN.md
 Resume file: None
