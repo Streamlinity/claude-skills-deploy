@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: planning
-stopped_at: Phase 1 context gathered
-last_updated: "2026-05-22T07:05:14.020Z"
-last_activity: 2026-05-21 — Roadmap created; 3 phases derived from 12 v1 requirements
+status: executing
+stopped_at: Completed 01-bug-fixes/01-01-PLAN.md
+last_updated: "2026-05-22T07:28:40.034Z"
+last_activity: 2026-05-22
 progress:
   total_phases: 3
   completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
+  total_plans: 3
+  completed_plans: 2
   percent: 0
 ---
 
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-21)
 
 **Core value:** A developer can clone this repo, run one command, see a working hello-world deployment on their Coolify server, and trust the skill is correct before using it for a real application.
-**Current focus:** Phase 1 — Bug Fixes
+**Current focus:** Phase 01 — bug-fixes
 
 ## Current Position
 
-Phase: 1 of 3 (Bug Fixes)
-Plan: 0 of TBD in current phase
-Status: Ready to plan
-Last activity: 2026-05-21 — Roadmap created; 3 phases derived from 12 v1 requirements
+Phase: 01 (bug-fixes) — EXECUTING
+Plan: 3 of 3
+Status: Ready to execute
+Last activity: 2026-05-22
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -52,6 +52,8 @@ Progress: [░░░░░░░░░░] 0%
 - Trend: —
 
 *Updated after each plan completion*
+| Phase 01-bug-fixes P01 | 2 | 2 tasks | 1 files |
+| Phase 01-bug-fixes P02 | 1 | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -63,6 +65,8 @@ Recent decisions affecting current work:
 - Roadmap: Fix HIGH bugs before building test framework — E2E test would fail for wrong reasons otherwise
 - Roadmap: No auto-cleanup in E2E test — new users need to see the deployed result
 - Roadmap: Static workflow validation instead of live GitHub Actions run
+- [Phase 01-bug-fixes]: D-01: needs: [smoke-staging] → needs: [deploy-staging] — smoke test is a step inside deploy-staging, not a separate job
+- [Phase 01-bug-fixes]: D-02: smoke test URL / → /api/health — aligns with Coolify health_check_path set in provision.sh
 
 ### Pending Todos
 
@@ -75,6 +79,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-22T07:05:14.018Z
-Stopped at: Phase 1 context gathered
-Resume file: .planning/phases/01-bug-fixes/01-CONTEXT.md
+Last session: 2026-05-22T07:28:31.755Z
+Stopped at: Completed 01-bug-fixes/01-01-PLAN.md
+Resume file: None

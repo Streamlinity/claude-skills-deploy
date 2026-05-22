@@ -7,7 +7,7 @@
 
 ### Bug Fixes
 
-- [ ] **BUG-01**: Running `/setup-coolify` on a repo generates a `deploy.yml` where the `deploy-production` job's `needs:` list references only jobs that exist in the same workflow file (currently references non-existent `smoke-staging` job)
+- [x] **BUG-01**: Running `/setup-coolify` on a repo generates a `deploy.yml` where the `deploy-production` job's `needs:` list references only jobs that exist in the same workflow file (currently references non-existent `smoke-staging` job)
 - [ ] **BUG-02**: When `provision.sh` calls `doppler secrets get` and the subprocess fails (network error, revoked token, wrong project), the script exits with a clear error message identifying the specific key and failure reason — does not silently inject an empty value into Coolify
 - [ ] **BUG-03**: `provision.sh` resolves the Coolify server UUID using a configurable server name read from `coolify.json` (with default `localhost`) — not a hardcoded string literal
 
@@ -61,7 +61,7 @@
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| BUG-01 | Phase 1 | Pending |
+| BUG-01 | Phase 1 | Complete |
 | BUG-02 | Phase 1 | Pending |
 | BUG-03 | Phase 1 | Pending |
 | TEST-01 | Phase 2 | Pending |
