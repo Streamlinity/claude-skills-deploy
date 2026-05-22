@@ -12,7 +12,7 @@ deployment on their Coolify server.
 
 - [ ] **Phase 1: Bug Fixes** - Patch three HIGH bugs in provision.sh and generate-workflow.sh that would cause the E2E test to fail for the wrong reasons
 - [x] **Phase 2: Test Framework** - Build the E2E test runner, static workflow validator, and wire them together so a passing run proves the skill is correct
-- [ ] **Phase 02.1: new-user-onboarding (URGENT)** - Remove maintainer-specific defaults and stale docs that silently fail for new users
+- [x] **Phase 02.1: new-user-onboarding (URGENT)** - Remove maintainer-specific defaults and stale docs that silently fail for new users (completed 2026-05-22)
 - [ ] **Phase 3: Cleanup Script** - Add the separate teardown script that lets an operator delete the hello-world deployment after inspecting it
 
 ## Phase Details
@@ -62,7 +62,7 @@ deployment on their Coolify server.
   5. README.md opens with a `## Quick start` section (positioned between `## What you get` and `## Prerequisites`) listing exactly 5 commands and linking to `docs/setup-guide.md` and `docs/fork-guide.md`
   6. references/api-reference.md begins with a placeholder convention note and uses `<your-coolify-domain>` / `<your-doppler-account>` / `<your-app-domain>` throughout
 **Plans**: 4 plans
-- [ ] 02.1-01-PLAN.md — test/e2e.sh: replace silent E2E_SERVER/E2E_BASE_DOMAIN defaults with actionable missing-var guards; annotate E2E_IMAGE default with origin + custom-image pointer (ONBOARD-01, ONBOARD-02)
+- [x] 02.1-01-PLAN.md — test/e2e.sh: replace silent E2E_SERVER/E2E_BASE_DOMAIN defaults with actionable missing-var guards; annotate E2E_IMAGE default with origin + custom-image pointer (ONBOARD-01, ONBOARD-02)
 - [x] 02.1-02-PLAN.md — SKILL.md: rewrite provision-flow steps 2 and 6 to match actual behaviour; replace maintainer init examples with generic placeholders; fix broken See also schema link (ONBOARD-03, ONBOARD-04, ONBOARD-05)
 - [x] 02.1-03-PLAN.md — README.md: add 5-command Quick start section above Prerequisites with links to setup-guide.md and fork-guide.md (ONBOARD-06)
 - [x] 02.1-04-PLAN.md — references/api-reference.md: add top-of-file placeholder convention note; replace all `streamlinity` / `coolify.cicd` values with `<your-coolify-domain>` / `<your-doppler-account>` / `<your-app-domain>` (ONBOARD-07)
@@ -87,5 +87,5 @@ deployment on their Coolify server.
 |-------|----------------|--------|-----------|
 | 1. Bug Fixes | 2/3 | In Progress|  |
 | 2. Test Framework | 1/2 | In Progress|  |
-| 02.1. new-user-onboarding | 3/4 | In Progress|  |
+| 02.1. new-user-onboarding | 4/4 | Complete   | 2026-05-22 |
 | 3. Cleanup Script | 0/1 | Not started | - |
