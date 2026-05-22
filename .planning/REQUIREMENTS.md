@@ -59,28 +59,26 @@
 
 ## Traceability
 
-Updated during roadmap creation.
-
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| BUG-01 | — | Pending |
-| BUG-02 | — | Pending |
-| BUG-03 | — | Pending |
-| TEST-01 | — | Pending |
-| TEST-02 | — | Pending |
-| TEST-03 | — | Pending |
-| TEST-04 | — | Pending |
-| TEST-05 | — | Pending |
-| VALID-01 | — | Pending |
-| VALID-02 | — | Pending |
-| CLEAN-01 | — | Pending |
-| CLEAN-02 | — | Pending |
+| BUG-01 | Phase 1 | Pending |
+| BUG-02 | Phase 1 | Pending |
+| BUG-03 | Phase 1 | Pending |
+| TEST-01 | Phase 2 | Pending |
+| TEST-02 | Phase 2 | Pending |
+| TEST-03 | Phase 2 | Pending |
+| TEST-04 | Phase 2 | Pending |
+| TEST-05 | Phase 2 | Pending |
+| VALID-01 | Phase 2 | Pending |
+| VALID-02 | Phase 2 | Pending |
+| CLEAN-01 | Phase 3 | Pending |
+| CLEAN-02 | Phase 3 | Pending |
 
 **Coverage:**
 - v1 requirements: 12 total
-- Mapped to phases: 0 (pending roadmap)
-- Unmapped: 12 ⚠️
+- Mapped to phases: 12
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-05-21*
-*Last updated: 2026-05-21 after initial definition*
+*Last updated: 2026-05-21 — phase assignments added after roadmap creation*
