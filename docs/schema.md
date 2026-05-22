@@ -21,10 +21,10 @@ instance and Doppler account to use; all other config is repo-local.
 | `doppler_project` | string | Doppler project slug. Conventionally the same as `project` unless multiple repos share one Doppler project. | `skillmap` |
 | `registry.image` | string | GHCR image path (no tag). The CI workflow appends the git SHA tag at build time — never include it here. Format: `ghcr.io/<org>/<repo>`. | `ghcr.io/anatesan-stream/ai-upskilling` |
 | `environments.staging.domain` | string | FQDN for staging (no protocol, no trailing slash). | `skillmap-staging.cicd.streamlinity.com` |
-| `environments.staging.doppler_environment` | string | Doppler config name for staging. | `staging` |
+| `environments.staging.doppler_environment` | string | Doppler config name for staging. Doppler creates `stg` by default — only change if you renamed it. | `stg` |
 | `environments.production.domain` | string | FQDN for production (no protocol, no trailing slash). | `skillmap.cicd.streamlinity.com` |
-| `environments.production.doppler_environment` | string | Doppler config name for production. | `production` |
-| `env_vars` | list of strings | Secret keys your app reads at runtime. All are injected at container start from Doppler — NOT baked into the image. Keys must exist in both staging and production Doppler configs. | `[DATABASE_URL, ANTHROPIC_API_KEY]` |
+| `environments.production.doppler_environment` | string | Doppler config name for production. Doppler creates `prd` by default — only change if you renamed it. | `prd` |
+| `env_vars` | list of strings | Secret keys your app reads at runtime. All are injected at container start from Doppler — NOT baked into the image. Keys must exist in both `stg` and `prd` Doppler configs. | `[DATABASE_URL, ANTHROPIC_API_KEY]` |
 
 ### Optional Fields
 
@@ -121,14 +121,14 @@ build:
 environments:
   staging:
     domain: myapp-staging.example.com   # CHANGE THIS: staging FQDN, no protocol
-    doppler_environment: staging         # leave as-is: matches Doppler config name
+    doppler_environment: stg             # leave as-is: Doppler default config name for staging
   production:
     domain: myapp.example.com            # CHANGE THIS: production FQDN, no protocol
-    doppler_environment: production      # leave as-is: matches Doppler config name
+    doppler_environment: prd             # leave as-is: Doppler default config name for production
 
 # CHANGE THIS: list every env var your app reads.
 # All are injected at container start from Doppler — NOT baked into the image.
-# Keys must exist in both the staging and production Doppler configs.
+# Keys must exist in both the stg and prd Doppler configs.
 env_vars:
   - DATABASE_URL
   - ANTHROPIC_API_KEY

@@ -109,21 +109,20 @@ open) and that your public key is in `root@<ip>:~/.ssh/authorized_keys`.
    matches your repo name (e.g., `skillmap`, `strategem-website`).
 
 4. **Create the required configs.** Doppler uses "configs" for environments. The skill
-   expects at least `staging` and `production` configs:
+   expects `stg` and `prd` configs (Doppler's actual defaults):
    ```bash
-   # Doppler creates dev + staging + production by default for new projects.
+   # Doppler creates dev, dev_personal, stg, and prd by default for new projects.
    # Verify they exist:
    doppler configs --project <project-name>
    ```
-   If `staging` or `production` are absent, create them via the dashboard:
+   If `stg` or `prd` are absent, create them via the dashboard:
    Doppler → Your Project → Configs → Add Config.
 
 5. **Seed secrets.** Every key listed in `env_vars` in your `coolify.yaml` must exist in
-   both the `staging` and `production` Doppler configs before `/setup-coolify validate`
-   will pass:
+   both the `stg` and `prd` Doppler configs before `/setup-coolify validate` will pass:
    ```bash
-   doppler secrets set --project <project-name> --config staging KEY=value
-   doppler secrets set --project <project-name> --config production KEY=value
+   doppler secrets set --project <project-name> --config stg KEY=value
+   doppler secrets set --project <project-name> --config prd KEY=value
    ```
    Repeat for every key your application needs (e.g., `DATABASE_URL`,
    `ANTHROPIC_API_KEY`, `STRIPE_SECRET_KEY`).

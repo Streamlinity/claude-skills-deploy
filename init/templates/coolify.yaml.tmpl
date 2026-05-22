@@ -44,15 +44,17 @@ environments:
     # CHANGE: FQDN for staging — no protocol, no trailing slash.
     domain: {{STAGING_DOMAIN}}
     # LEAVE: matches the Doppler config name inside your doppler_project.
-    doppler_environment: staging
+    # Doppler creates stg and prd by default — do not change unless you renamed them.
+    doppler_environment: stg
   production:
     # CHANGE: FQDN for production — no protocol, no trailing slash.
     domain: {{PROD_DOMAIN}}
     # LEAVE: matches the Doppler config name inside your doppler_project.
-    doppler_environment: production
+    # Doppler creates stg and prd by default — do not change unless you renamed them.
+    doppler_environment: prd
 
 # CHANGE: list every environment variable your app reads (e.g. DATABASE_URL).
-# These must exist in BOTH the staging and production Doppler configs.
+# These must exist in BOTH the stg and prd Doppler configs.
 # They are injected at container start — NOT baked into the image.
 # Add all required keys here; /setup-coolify validate will catch missing ones.
 env_vars:

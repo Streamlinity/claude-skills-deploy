@@ -105,8 +105,8 @@ doppler login    # follow browser prompts, select the strategem workspace
 doppler projects create strategem-website
 ```
 
-Or create the project via the Doppler dashboard. Then verify the `staging` and
-`production` configs exist:
+Or create the project via the Doppler dashboard. Then verify the `stg` and
+`prd` configs exist (Doppler's actual defaults):
 ```bash
 doppler configs --project strategem-website
 ```
@@ -134,10 +134,10 @@ command. When prompted, answer:
 ### Step 6 — Seed Doppler secrets
 
 ```bash
-doppler secrets set --project strategem-website --config staging DATABASE_URL=postgres://...
-doppler secrets set --project strategem-website --config staging OPENAI_API_KEY=sk-...
-doppler secrets set --project strategem-website --config production DATABASE_URL=postgres://...
-doppler secrets set --project strategem-website --config production OPENAI_API_KEY=sk-...
+doppler secrets set --project strategem-website --config stg DATABASE_URL=postgres://...
+doppler secrets set --project strategem-website --config stg OPENAI_API_KEY=sk-...
+doppler secrets set --project strategem-website --config prd DATABASE_URL=postgres://...
+doppler secrets set --project strategem-website --config prd OPENAI_API_KEY=sk-...
 ```
 
 Repeat for every key your application needs in both configs.
@@ -183,10 +183,10 @@ build:
 environments:
   staging:
     domain: staging.strategem.ai
-    doppler_environment: staging
+    doppler_environment: stg
   production:
     domain: www.strategem.ai
-    doppler_environment: production
+    doppler_environment: prd
 
 env_vars:
   - DATABASE_URL
