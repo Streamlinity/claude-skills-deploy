@@ -1,8 +1,10 @@
 # Coolify + Doppler API Reference
 
+> Replace `<your-coolify-domain>` with your Coolify instance root URL (e.g. `coolify.example.com`), `<your-doppler-account>` with your Doppler account slug, and `<your-ssh-host>` with the SSH alias for your Coolify VPS (from `~/.ssh/config`) throughout this document. The examples use placeholder values; you must substitute your own.
+
 Source: `.planning/phases/07-coolify-doppler-deploy-infrastructure/07-RESEARCH.md`
 
-Base URL: `https://coolify.cicd.streamlinity.com/api/v1` (after SSL enabled + allowed_ips cleared)
+Base URL: `https://<your-coolify-domain>/api/v1` (after SSL enabled + allowed_ips cleared)
 Auth: `Authorization: Bearer <api_key>`
 
 ---
@@ -67,7 +69,7 @@ curl -s -X POST "$COOLIFY_URL/api/v1/applications/private-github-app" \
     "source_type": "registry",
     "docker_registry_image_name": "ghcr.io/anatesan-stream/ai-upskilling",
     "ports_exposes": "3000",
-    "domains": "https://skillmap-staging.streamlinity.com",
+    "domains": "https://skillmap-staging.<your-app-domain>",
     "is_auto_deploy_enabled": false,
     "instant_deploy": false
   }'
@@ -86,7 +88,7 @@ curl -s -X PATCH "$COOLIFY_URL/api/v1/applications/$APP_UUID" \
   -H "Authorization: Bearer $COOLIFY_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
-    "fqdn": "https://skillmap-staging.streamlinity.com",
+    "fqdn": "https://skillmap-staging.<your-app-domain>",
     "is_auto_deploy_enabled": false,
     "custom_docker_run_options": "--mount source=<app-uuid>-doppler-cache,target=/etc/doppler-cache"
   }'
@@ -187,7 +189,7 @@ curl -s -X POST "https://api.doppler.com/v3/configs/config/tokens" \
 # Response: {"token":{"key":"dp.st.staging.xxx",...}}
 
 # CLI (simpler):
-doppler --account streamlinity configs tokens create "coolify-staging" \
+doppler --account <your-doppler-account> configs tokens create "coolify-staging" \
   -p skillmap -c staging --plain
 ```
 
@@ -201,7 +203,7 @@ curl -s "https://api.doppler.com/v3/configs/config/secrets/download?project=skil
 # Response: {"KEY1":"value1","KEY2":"value2",...}
 
 # CLI equivalent:
-doppler --account streamlinity secrets download \
+doppler --account <your-doppler-account> secrets download \
   --project skillmap --config staging --no-file --format docker
 ```
 
@@ -215,7 +217,7 @@ curl -s "https://api.doppler.com/v3/configs/config/secret?project=skillmap&confi
 # Response: {"secret":{"name":"DATABASE_URL","value":{"raw":"..."}}}
 
 # CLI (used by validate.sh):
-doppler --account streamlinity secrets get \
+doppler --account <your-doppler-account> secrets get \
   --project skillmap --config staging DATABASE_URL --plain
 # Exit code 0 = exists, non-zero = missing
 ```
@@ -225,7 +227,7 @@ doppler --account streamlinity secrets get \
 ## Notes
 
 - Coolify volume API does NOT exist (GitHub issue #4084, closed without implementation).
-  Use SSH to create Docker named volumes: `ssh v_cicd_stream "docker volume create <name>"`
+  Use SSH to create Docker named volumes: `ssh <your-ssh-host> "docker volume create <name>"`
   then set `custom_docker_run_options` via PATCH.
 - Coolify `allowed_ips` must be cleared (set to `*`) before API calls succeed from non-whitelisted IPs.
 - Coolify API tokens are stored as hashes (Laravel Sanctum) — original value unrecoverable.
