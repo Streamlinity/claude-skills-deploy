@@ -43,12 +43,20 @@ PROJECT_UUID=$(coolify_upsert_project "$PROJECT" "Provisioned by /setup-coolify 
 [ -n "$PROJECT_UUID" ] || { echo "ERROR: failed to resolve project UUID for '$PROJECT'" >&2; exit 1; }
 echo "  project_uuid=$PROJECT_UUID"
 
-# Server name on a single-node Coolify install is conventionally "localhost".
-SERVER_UUID=$(coolify_get_server_uuid "localhost")
-[ -n "$SERVER_UUID" ] || { echo "ERROR: server 'localhost' not found in Coolify" >&2; exit 1; }
+# Server name on a single-node Coolify install is conventionally "localhost", but
+# is user-configurable in the Coolify UI. Read the configured name from coolify.json
+# (optional field; defaults to "localhost" for backward compatibility).
+SERVER_NAME=$(python3 -c "
+import json
+d=json.load(open('$HOME/.claude/coolify.json'))
+e=d.get('servers',{}).get('$SERVER_ALIAS',{})
+print(e.get('server_name','localhost'))
+")
+SERVER_UUID=$(coolify_get_server_uuid "$SERVER_NAME")
+[ -n "$SERVER_UUID" ] || { echo "ERROR: server '$SERVER_NAME' not found in Coolify (configured via servers.$SERVER_ALIAS.server_name in ~/.claude/coolify.json; default 'localhost')" >&2; exit 1; }
 DEST_UUID=$(coolify_get_destination_uuid "$SERVER_UUID")
 # destination_uuid is optional in the Coolify API for single-node installs
-echo "  server_uuid=$SERVER_UUID dest_uuid=${DEST_UUID:-<auto>}"
+echo "  server_name=$SERVER_NAME server_uuid=$SERVER_UUID dest_uuid=${DEST_UUID:-<auto>}"
 
 # SSH host: read from ~/.claude/coolify.json server entry. REQUIRED — no fallback.
 # provision.sh creates a Docker volume on the Coolify server via SSH, so this must be set.
