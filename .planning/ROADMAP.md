@@ -64,7 +64,7 @@ deployment on their Coolify server.
 **Plans**: 4 plans
 - [ ] 02.1-01-PLAN.md — test/e2e.sh: replace silent E2E_SERVER/E2E_BASE_DOMAIN defaults with actionable missing-var guards; annotate E2E_IMAGE default with origin + custom-image pointer (ONBOARD-01, ONBOARD-02)
 - [ ] 02.1-02-PLAN.md — SKILL.md: rewrite provision-flow steps 2 and 6 to match actual behaviour; replace maintainer init examples with generic placeholders; fix broken See also schema link (ONBOARD-03, ONBOARD-04, ONBOARD-05)
-- [ ] 02.1-03-PLAN.md — README.md: add 5-command Quick start section above Prerequisites with links to setup-guide.md and fork-guide.md (ONBOARD-06)
+- [x] 02.1-03-PLAN.md — README.md: add 5-command Quick start section above Prerequisites with links to setup-guide.md and fork-guide.md (ONBOARD-06)
 - [ ] 02.1-04-PLAN.md — references/api-reference.md: add top-of-file placeholder convention note; replace all `streamlinity` / `coolify.cicd` values with `<your-coolify-domain>` / `<your-doppler-account>` / `<your-app-domain>` (ONBOARD-07)
 
 **UI hint**: no
@@ -87,5 +87,5 @@ deployment on their Coolify server.
 |-------|----------------|--------|-----------|
 | 1. Bug Fixes | 2/3 | In Progress|  |
 | 2. Test Framework | 1/2 | In Progress|  |
-| 02.1. new-user-onboarding | 0/4 | Not started | - |
+| 02.1. new-user-onboarding | 1/4 | In Progress|  |
 | 3. Cleanup Script | 0/1 | Not started | - |

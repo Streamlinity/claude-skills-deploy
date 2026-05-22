@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: verifying
-stopped_at: Phase 02.1 context gathered
-last_updated: "2026-05-22T19:01:12.313Z"
+status: executing
+stopped_at: Completed 02.1-03-PLAN.md
+last_updated: "2026-05-22T19:27:36.692Z"
 last_activity: 2026-05-22
 progress:
   total_phases: 4
   completed_phases: 2
-  total_plans: 6
-  completed_plans: 5
+  total_plans: 10
+  completed_plans: 6
   percent: 0
 ---
 
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-21)
 
 **Core value:** A developer can clone this repo, run one command, see a working hello-world deployment on their Coolify server, and trust the skill is correct before using it for a real application.
-**Current focus:** Phase 02 — test-framework
+**Current focus:** Phase 02.1 — new-user-onboarding
 
 ## Current Position
 
-Phase: 03
-Plan: Not started
-Status: Phase complete — ready for verification
+Phase: 02.1 (new-user-onboarding) — EXECUTING
+Plan: 2 of 4
+Status: Ready to execute
 Last activity: 2026-05-22
 
 Progress: [░░░░░░░░░░] 0%
@@ -57,6 +57,7 @@ Progress: [░░░░░░░░░░] 0%
 | Phase 01-bug-fixes P03 | 3 | 2 tasks | 2 files |
 | Phase 02-test-framework P02 | 5 | 1 tasks | 1 files |
 | Phase 02-test-framework P01 | 3 | 3 tasks | 1 files |
+| Phase 02.1-new-user-onboarding P03 | 2 | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -78,6 +79,7 @@ Recent decisions affecting current work:
 - [Phase 02-test-framework]: VALID-02 error accumulation: collect all broken needs refs before exiting, matching validate.sh convention
 - [Phase 02-test-framework]: E2E_SERVER env var replaces python3 coolify.json first-server fallback — simpler and explicit
 - [Phase 02-test-framework]: write_report() called idempotently from main body and cleanup() to ensure report written on both pass and fail paths
+- [Phase 02.1-new-user-onboarding]: D-08: Quick start section added to README.md above Prerequisites — 5-command happy path gives new users workflow overview before prerequisite wall
 
 ### Roadmap Evolution
 
@@ -94,6 +96,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-05-22T19:01:12.311Z
-Stopped at: Phase 02.1 context gathered
-Resume file: .planning/phases/02.1-new-user-onboarding/02.1-CONTEXT.md
+Last session: 2026-05-22T19:27:36.690Z
+Stopped at: Completed 02.1-03-PLAN.md
+Resume file: None
