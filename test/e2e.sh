@@ -7,14 +7,11 @@
 # apps running.
 #
 # Usage:
-#   bash test/e2e.sh                                  # default server + domain
 #   bash test/e2e.sh --server hetzner-strategem       # test against a specific server
 #   bash test/e2e.sh --keep                           # skip cleanup (debug failures)
-#   E2E_SERVER=other bash test/e2e.sh                 # change server alias (default: vultr-stream)
-#   E2E_BASE_DOMAIN=ci.example.com bash test/e2e.sh   # change base domain (default: cicd.streamlinity.com)
+#   E2E_SERVER=my-server bash test/e2e.sh             # REQUIRED — alias from ~/.claude/coolify.json
+#   E2E_BASE_DOMAIN=ci.example.com bash test/e2e.sh   # REQUIRED — base domain for test URLs
 #   E2E_IMAGE=ghcr.io/my-org/my-hello:latest bash test/e2e.sh
-#
-# Defaults E2E_SERVER and E2E_BASE_DOMAIN — change these for other domains.
 #
 # Prerequisites:
 #   ~/.claude/coolify.json  configured with a server alias (ssh_host required)
@@ -37,12 +34,13 @@ source "$SKILL_DIR/scripts/lib-doppler-api.sh"
 TIMESTAMP=$(date +%Y%m%d%H%M%S)
 TEST_PROJECT="csd-e2e-$(date +%Y-%m-%d-%H%M%S)"
 KEEP_ON_EXIT=false
-# E2E_SERVER:      Coolify server alias to test against.
-#                  Default: vultr-stream — change for other servers.
-# E2E_BASE_DOMAIN: Base domain for staging/production test URLs.
-#                  Default: cicd.streamlinity.com — change for other domains.
-E2E_SERVER="${E2E_SERVER:-vultr-stream}"
-E2E_BASE_DOMAIN="${E2E_BASE_DOMAIN:-cicd.streamlinity.com}"
+# E2E_SERVER:      Required. Coolify server alias key from ~/.claude/coolify.json
+#                  (an alias, NOT a raw hostname). The alias maps to the Coolify
+#                  instance URL, API key, Doppler account, and SSH host.
+# E2E_BASE_DOMAIN: Required. Base domain under which test app URLs are
+#                  constructed (e.g. ci.example.com → <project>-staging.ci.example.com).
+E2E_SERVER="${E2E_SERVER:-}"
+E2E_BASE_DOMAIN="${E2E_BASE_DOMAIN:-}"
 SERVER_ALIAS=""
 # Override E2E_IMAGE to use a different test image (must listen on port 3000,
 # serve /api/health returning 200, and be pullable by the Coolify VPS).
@@ -59,6 +57,42 @@ while [[ $# -gt 0 ]]; do
     *) echo "Unknown argument: $1" >&2; echo "Usage: bash test/e2e.sh [--server ALIAS] [--keep]" >&2; exit 1 ;;
   esac
 done
+
+# ── Required env vars (no maintainer-specific defaults) ────────────────────────
+MISSING_VARS=()
+if [ -z "$SERVER_ALIAS" ] && [ -z "$E2E_SERVER" ]; then
+  MISSING_VARS+=(E2E_SERVER)
+fi
+if [ -z "$E2E_BASE_DOMAIN" ]; then
+  MISSING_VARS+=(E2E_BASE_DOMAIN)
+fi
+if [ ${#MISSING_VARS[@]} -gt 0 ]; then
+  for v in "${MISSING_VARS[@]}"; do
+    case "$v" in
+      E2E_SERVER)
+        cat >&2 <<'ERR'
+ERROR: E2E_SERVER is required.
+  Set it to the server alias key in ~/.claude/coolify.json (e.g. my-server).
+  This alias points to your Coolify instance URL, API key, and SSH host.
+  Run /setup-coolify init in any Claude Code session to create or extend ~/.claude/coolify.json.
+
+  E2E_SERVER=my-server bash test/e2e.sh
+ERR
+        ;;
+      E2E_BASE_DOMAIN)
+        cat >&2 <<'ERR'
+ERROR: E2E_BASE_DOMAIN is required.
+  Set it to the base domain under which test app URLs are constructed.
+  The script appends "<project>-staging." and "<project>-production." to it,
+  so the resulting hostnames must resolve to your Coolify VPS via DNS.
+
+  E2E_BASE_DOMAIN=ci.example.com bash test/e2e.sh
+ERR
+        ;;
+    esac
+  done
+  exit 1
+fi
 
 # ── State (populated as test proceeds, used by cleanup) ────────────────────────
 
