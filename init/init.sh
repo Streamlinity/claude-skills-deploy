@@ -72,6 +72,36 @@ read -rp "Staging domain (no protocol) [e.g. ${PROJECT}-staging.example.com]: " 
 read -rp "Production domain (no protocol) [e.g. ${PROJECT}.example.com]: " PROD_DOMAIN
 [ -n "$PROD_DOMAIN" ] || { echo "ERROR: production domain required" >&2; exit 1; }
 
+echo ""
+echo "DNS provisioning (automated A record creation — optional but recommended)."
+echo "When enabled, /setup-coolify creates DNS records so Let's Encrypt can issue"
+echo "certificates without a manual DNS step."
+echo ""
+read -rp "DNS provider for automated A record creation (cloudflare/none) [cloudflare]: " DNS_PROVIDER
+DNS_PROVIDER="${DNS_PROVIDER:-cloudflare}"
+
+if [ "$DNS_PROVIDER" = "cloudflare" ]; then
+  # Derive default zone from production domain (last two labels: example.com from sub.example.com)
+  DEFAULT_ZONE=$(echo "$PROD_DOMAIN" | awk -F. '{n=NF; printf "%s.%s", $(n-1), $n}')
+  read -rp "DNS zone name (root zone — suffix of staging+prod domains) [$DEFAULT_ZONE]: " DNS_ZONE_NAME
+  DNS_ZONE_NAME="${DNS_ZONE_NAME:-$DEFAULT_ZONE}"
+  read -rp "Where is the Cloudflare API token stored? (doppler/coolify_json) [doppler]: " DNS_CREDENTIAL_SOURCE
+  DNS_CREDENTIAL_SOURCE="${DNS_CREDENTIAL_SOURCE:-doppler}"
+  if [ "$DNS_CREDENTIAL_SOURCE" = "doppler" ]; then
+    read -rp "Doppler secret name holding the token [CLOUDFLARE_API_TOKEN]: " DNS_CREDENTIAL_KEY
+    DNS_CREDENTIAL_KEY="${DNS_CREDENTIAL_KEY:-CLOUDFLARE_API_TOKEN}"
+  else
+    read -rp "coolify.json server field name holding the token [cloudflare_api_token]: " DNS_CREDENTIAL_KEY
+    DNS_CREDENTIAL_KEY="${DNS_CREDENTIAL_KEY:-cloudflare_api_token}"
+  fi
+else
+  # provider: none — leave zone + credential fields empty; template renders them as empty strings
+  DNS_ZONE_NAME=""
+  DNS_CREDENTIAL_SOURCE="doppler"
+  DNS_CREDENTIAL_KEY=""
+fi
+echo ""
+
 read -rp "Build context (path to Docker context relative to repo root) [.]: " BUILD_CONTEXT
 BUILD_CONTEXT="${BUILD_CONTEXT:-.}"
 
@@ -92,11 +122,14 @@ ENV_VARS_LIST="${ENV_VARS_LIST%$'\n'}"
 # Render template via python3 for robust multiline substitution.
 python3 - "$TEMPLATE" "$PROJECT" "$SERVER" "$DOPPLER_PROJECT" "$REGISTRY_IMAGE" \
                       "$STAGING_DOMAIN" "$PROD_DOMAIN" "$BUILD_CONTEXT" "$BUILD_DOCKERFILE" \
-                      "$ENV_VARS_LIST" > ./coolify.yaml <<'PY'
+                      "$ENV_VARS_LIST" \
+                      "$DNS_PROVIDER" "$DNS_ZONE_NAME" "$DNS_CREDENTIAL_SOURCE" "$DNS_CREDENTIAL_KEY" \
+                      > ./coolify.yaml <<'PY'
 import sys
 tmpl_path = sys.argv[1]
 project, server, doppler_proj, registry_img, staging_domain, prod_domain, \
-    build_ctx, build_df, env_vars_list = sys.argv[2:11]
+    build_ctx, build_df, env_vars_list, \
+    dns_provider, dns_zone_name, dns_cred_source, dns_cred_key = sys.argv[2:15]
 with open(tmpl_path) as f:
     content = f.read()
 subs = {
@@ -109,6 +142,10 @@ subs = {
     '{{BUILD_CONTEXT}}': build_ctx,
     '{{BUILD_DOCKERFILE}}': build_df,
     '{{ENV_VARS_LIST}}': env_vars_list,
+    '{{DNS_PROVIDER}}': dns_provider,
+    '{{DNS_ZONE_NAME}}': dns_zone_name,
+    '{{DNS_CREDENTIAL_SOURCE}}': dns_cred_source,
+    '{{DNS_CREDENTIAL_KEY}}': dns_cred_key,
 }
 for tok, val in subs.items():
     content = content.replace(tok, val)
@@ -159,8 +196,17 @@ echo "     (configures ~/.claude/coolify.json with url, api_key, doppler_account
 echo "  2. Create the Doppler project '$DOPPLER_PROJECT' with stg + prd configs"
 echo "     (browser flow — requires Doppler dashboard access)."
 echo "     docs/setup-guide.md Step 4 has the exact commands once you've authenticated."
-echo "  3. Run: /setup-coolify validate    (dry-run sanity check of Doppler + Coolify)"
-echo "  4. Run: /setup-coolify             (provision Coolify apps + Doppler secret injection)"
+if [ "$DNS_PROVIDER" != "none" ] && [ -n "$DNS_CREDENTIAL_KEY" ]; then
+  echo "  2b. Store the $DNS_PROVIDER API token in $DNS_CREDENTIAL_SOURCE before running validate:"
+  if [ "$DNS_CREDENTIAL_SOURCE" = "doppler" ]; then
+    echo "      doppler secrets set $DNS_CREDENTIAL_KEY --project $DOPPLER_PROJECT --config stg"
+  else
+    echo "      Add '$DNS_CREDENTIAL_KEY' to servers.$SERVER in ~/.claude/coolify.json"
+  fi
+  echo "      The token needs Zone:DNS:Edit scope on zone '$DNS_ZONE_NAME'."
+fi
+echo "  3. Run: /setup-coolify validate    (dry-run sanity check of Doppler + Coolify + DNS)"
+echo "  4. Run: /setup-coolify             (provision Coolify apps + Doppler secret injection + DNS A records)"
 echo "  5. Commit and push:"
 echo "     git add coolify.yaml .github/workflows/deploy.yml"
 echo "     git commit -m 'ci: add Coolify deploy pipeline' && git push"

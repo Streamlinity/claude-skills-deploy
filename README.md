@@ -14,6 +14,7 @@ Coolify + Doppler deployment skills for Claude Code. One command bootstraps any 
 - Doppler integration: all secrets injected at container start via `DOPPLER_TOKEN`
 - Auto-generated `.github/workflows/deploy.yml` implementing GHCR same-image promotion (build once, deploy staging, smoke test, then deploy SAME image to production)
 - `init.sh` bootstrapper: takes a new repo from zero to `coolify.yaml` + `.github/workflows/deploy.yml` in under a minute (one command, two files written)
+- Automated DNS A record provisioning (Cloudflare) — no more manual A records before HTTPS. When `dns: provider: cloudflare` is set, `/setup-coolify` creates staging + production A records pointing at your VPS automatically.
 
 ---
 
@@ -49,7 +50,7 @@ The happy path in 5 commands. Full prerequisites (Doppler CLI, Python, an actual
    ```
    /setup-coolify
    ```
-   Creates Coolify staging + production apps, wires Doppler service tokens, mounts the Doppler-cache Docker volume. Idempotent. After this, push to `main` triggers the first deploy via the generated `.github/workflows/deploy.yml`.
+   Creates Coolify staging + production apps, wires Doppler service tokens, mounts the Doppler-cache Docker volume. Idempotent. If `dns: provider: cloudflare` is set in `coolify.yaml`, A records for staging + production domains are created automatically. Otherwise create them manually before HTTPS issuance. After this, push to `main` triggers the first deploy via the generated `.github/workflows/deploy.yml`.
 
 Need more? See [docs/setup-guide.md](./docs/setup-guide.md) for the full VPS + Coolify + Doppler stand-up walkthrough, or [docs/fork-guide.md](./docs/fork-guide.md) for adding a second domain to an existing setup.
 
@@ -175,6 +176,8 @@ See **[docs/schema.md](./docs/schema.md)** for full `coolify.yaml` and `coolify.
 | `custom_docker_run_options did not round-trip` | Coolify did not persist the volume mount PATCH | Verify your Coolify version. Re-run `/setup-coolify` (idempotent). |
 | `/setup-coolify` not found in Claude Code | Wrong install depth or symlink missing | Verify `~/.claude/skills/setup-coolify/SKILL.md` exists at exactly that path. The repo root must BE the skill directory. |
 | `ModuleNotFoundError: No module named 'yaml'` | PyYAML not installed | `pip3 install pyyaml` |
+| `MISSING:DNS_CREDENTIAL:CLOUDFLARE_API_TOKEN` | DNS provider is cloudflare but the token is not present in the configured source | `doppler secrets set CLOUDFLARE_API_TOKEN --project <p> --config stg` (or add `cloudflare_api_token` to `coolify.json` if using `credential_source: coolify_json`) |
+| `ERROR: fqdn '...' is not under configured DNS zone '...'` | `dns.zone_name` is not a suffix of the staging or production domain | Check `dns.zone_name` in `coolify.yaml` — it must be a suffix of both domains (e.g. `example.com` covers `app.example.com` and `app-staging.example.com`) |
 | Staging smoke test times out in GitHub Actions | Coolify deploy took longer than 6 minutes | Check Coolify UI for deploy logs. Likely cause: image pull from GHCR is slow or app crashed at start. |
 
 ---

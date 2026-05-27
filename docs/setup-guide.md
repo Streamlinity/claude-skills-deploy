@@ -21,34 +21,63 @@ these values with your own throughout.
 
 ## DNS setup
 
-All DNS records must exist before you enable HTTPS on Coolify (Step 1) or deploy any
-application. Provision your VPS first (Step 1, items 1–3), note its public IP, then
-create the records below before continuing.
+Provision your VPS first (Step 1, items 1–3) to get the public IP. Then create DNS
+records using one of the two options below. The Coolify dashboard record
+(`coolify.<your-domain>`) must always be created manually (it predates the skill).
+App A records (staging + production) can be automated via Cloudflare.
 
-### Records to create
+### Option A: Automated DNS via Cloudflare (recommended)
+
+Skip the manual per-app records below. Instead:
+
+1. Create a Cloudflare API token at `https://dash.cloudflare.com/profile/api-tokens`
+   with **Zone: DNS: Edit** permission scoped to your target zone. Copy the token.
+
+2. Store it in Doppler (staging config — DNS credentials are shared across environments):
+   ```bash
+   doppler secrets set CLOUDFLARE_API_TOKEN --project <your-project> --config stg
+   ```
+   Or store it in `~/.claude/coolify.json` if you prefer `credential_source: coolify_json`
+   (see [docs/schema.md](./schema.md) for the `dns:` block schema).
+
+3. When running `bash init/init.sh`, answer `cloudflare` to the DNS provider prompt.
+   The generated `coolify.yaml` will contain a `dns:` block. `/setup-coolify` then
+   creates A records for staging and production automatically after Coolify apps are
+   provisioned.
+
+**Still required manually** (predates the skill):
+
+| Purpose | Type | Name | Value |
+|---------|------|------|-------|
+| Coolify dashboard | A | `coolify.<your-domain>` | `<vps-ip>` |
+
+> **Note:** If your staging/production domains use a wildcard A record at the DNS
+> provider, automated DNS provisioning is still safe — the skill's upsert is idempotent.
+
+### Option B: Manual DNS records
+
+If you are not using Cloudflare, or prefer manual control, create these records before
+running `/setup-coolify`:
 
 | Purpose | Type | Name | Value | Notes |
 |---------|------|------|-------|-------|
-| Coolify dashboard | A | `coolify.<your-domain>` | `<vps-ip>` | Used by Let's Encrypt and for browser access to the Coolify UI |
-| Deployed app — staging | A | `*.<base-domain>` | `<vps-ip>` | Wildcard covers all `<app>-staging.<base-domain>` subdomains that Coolify creates |
-| Deployed app — production | A | `<app>.<your-domain>` | `<vps-ip>` | One record per production app; add these as you provision apps |
-| E2E test subdomains | — | (covered by wildcard) | — | The `csd-e2e-*-staging.<base-domain>` throwaway domains used by `test/e2e.sh` resolve automatically if the wildcard is in place |
+| Coolify dashboard | A | `coolify.<your-domain>` | `<vps-ip>` | Required for HTTPS on Coolify UI |
+| Deployed app — staging | A | `*.<base-domain>` | `<vps-ip>` | Wildcard covers all `<app>-staging.<base-domain>` subdomains |
+| Deployed app — production | A | `<app>.<your-domain>` | `<vps-ip>` | One record per production app |
+| E2E test subdomains | — | (covered by wildcard) | — | `csd-e2e-*-staging.<base-domain>` resolves via wildcard |
 
-### Reference implementation
-
-For `streamlinity.com` on Vultr IP `149.248.4.46`:
+**Reference implementation** for `streamlinity.com` on Vultr IP `149.248.4.46`:
 
 ```
 coolify.cicd.streamlinity.com   A   149.248.4.46   # Coolify dashboard + API
-*.cicd.streamlinity.com         A   149.248.4.46   # wildcard for all deployed app subdomains
-skillmap.cicd.streamlinity.com  A   149.248.4.46   # production app (explicit, or covered by wildcard)
+*.cicd.streamlinity.com         A   149.248.4.46   # wildcard for all app subdomains
+skillmap.cicd.streamlinity.com  A   149.248.4.46   # production app (or covered by wildcard)
 ```
 
 > **Wildcard vs. explicit records:** A wildcard (`*.<base-domain>`) covers staging,
 > E2E test throwaway subdomains, and any new apps automatically. Most DNS providers
-> support wildcard A records. If yours does not, you will need to add an explicit A record
-> for each app subdomain (`<app>-staging.<base-domain>`, `<app>-production.<base-domain>`)
-> before Coolify can issue a TLS certificate for it.
+> support wildcard A records. If yours does not, add explicit A records for each
+> `<app>-staging.<base-domain>` and `<app>-production.<base-domain>`.
 
 ### DNS propagation
 
