@@ -8,26 +8,61 @@ Two repos and three external services work together to produce a same-image-prom
 
 Run through these steps once per domain. Steps ①–③ and ⑤–⑦ are CLI commands; only step ④ (creating the Doppler project) requires a browser.
 
-```mermaid
-%%{init: {"flowchart": {"htmlLabels": true}}}%%
-flowchart TD
-    A["<div style='text-align:left; padding:2px 8px'><b>① Install skill</b><br/>• Fork <code>anatesan-stream/claude-skills-deploy</code> on GitHub<br/>• Clone your fork to <code>~/.claude/skills/setup-coolify/</code></div>"]
-    B["<div style='text-align:left; padding:2px 8px'><b>② Configure machine credentials</b><br/>File: <code>~/.claude/coolify.json</code><br/>• Coolify URL<br/>• API key<br/>• ssh_host (alias in ~/.ssh/config)<br/>• Doppler account</div>"]
-    C["<div style='text-align:left; padding:2px 8px'><b>③ Bootstrap your app repo</b><br/><code>bash ~/.claude/skills/setup-coolify/init/init.sh</code><br/>Writes two files:<br/>• <code>coolify.yaml</code> — deploy manifest, safe to commit<br/>• <code>.github/workflows/deploy.yml</code> — CI pipeline</div>"]
-    D["<div style='text-align:left; padding:2px 8px'><b>④ Create Doppler project</b> ⚠ browser step<br/>• New project at dashboard.doppler.com<br/>• Create two configs: staging · production<br/>• Add all secrets listed in <code>coolify.yaml</code> env_vars</div>"]
-    E["<div style='text-align:left; padding:2px 8px'><b>⑤ Dry-run validate</b><br/><code>/setup-coolify validate</code><br/>• Checks Coolify API reachability<br/>• Verifies every Doppler secret exists in staging + production<br/>• No mutations</div>"]
-    F["<div style='text-align:left; padding:2px 8px'><b>⑥ Provision</b><br/><code>/setup-coolify</code><br/>• Coolify staging app created<br/>• Coolify production app created<br/>• Doppler service tokens generated + wired as DOPPLER_TOKEN<br/>• Docker volume created on VPS for Doppler fallback cache<br/>• App UUIDs written back to <code>coolify.yaml</code></div>"]
-    G["<div style='text-align:left; padding:2px 8px'><b>⑦ Go live</b><br/>• <code>git add coolify.yaml .github/workflows/deploy.yml</code><br/>• <code>git commit -m 'ci: add Coolify deploy pipeline'</code><br/>• <code>git push</code><br/>GitHub Actions pipeline is now active</div>"]
-
-    A --> B --> C --> D --> E --> F --> G
-
-    style A fill:#e3f2fd,stroke:#1976D2,color:#000
-    style B fill:#e3f2fd,stroke:#1976D2,color:#000
-    style C fill:#e3f2fd,stroke:#1976D2,color:#000
-    style D fill:#fff3e0,stroke:#F57C00,color:#000
-    style E fill:#e3f2fd,stroke:#1976D2,color:#000
-    style F fill:#e3f2fd,stroke:#1976D2,color:#000
-    style G fill:#e8f5e9,stroke:#388E3C,color:#000
+```
+┌─── ① Install skill ─────────────────────────────────────────────────────┐
+│  • Fork anatesan-stream/claude-skills-deploy on GitHub                  │
+│  • Clone your fork to ~/.claude/skills/setup-coolify/                   │
+└─────────────────────────────────────────────────────────────────────────┘
+    │
+    ▼
+┌─── ② Configure machine credentials ─────────────────────────────────────┐
+│  File: ~/.claude/coolify.json                                           │
+│  • Coolify URL                                                          │
+│  • API key                                                              │
+│  • ssh_host  (alias in ~/.ssh/config)                                   │
+│  • Doppler account                                                      │
+└─────────────────────────────────────────────────────────────────────────┘
+    │
+    ▼
+┌─── ③ Bootstrap your app repo ───────────────────────────────────────────┐
+│  bash ~/.claude/skills/setup-coolify/init/init.sh                       │
+│  Writes two files:                                                      │
+│  • coolify.yaml                 — deploy manifest, safe to commit       │
+│  • .github/workflows/deploy.yml — CI pipeline                           │
+└─────────────────────────────────────────────────────────────────────────┘
+    │
+    ▼
+┌─── ④ Create Doppler project  ⚠ browser step ────────────────────────────┐
+│  • New project at dashboard.doppler.com                                 │
+│  • Create two configs: staging · production                             │
+│  • Add all secrets listed in coolify.yaml env_vars                      │
+└─────────────────────────────────────────────────────────────────────────┘
+    │
+    ▼
+┌─── ⑤ Dry-run validate ──────────────────────────────────────────────────┐
+│  /setup-coolify validate                                                │
+│  • Checks Coolify API reachability                                      │
+│  • Verifies every Doppler secret exists in staging + production         │
+│  • No mutations                                                         │
+└─────────────────────────────────────────────────────────────────────────┘
+    │
+    ▼
+┌─── ⑥ Provision ─────────────────────────────────────────────────────────┐
+│  /setup-coolify                                                         │
+│  • Coolify staging app created                                          │
+│  • Coolify production app created                                       │
+│  • Doppler service tokens generated + wired as DOPPLER_TOKEN            │
+│  • Docker volume created on VPS for Doppler fallback cache              │
+│  • App UUIDs written back to coolify.yaml                               │
+└─────────────────────────────────────────────────────────────────────────┘
+    │
+    ▼
+┌─── ⑦ Go live ───────────────────────────────────────────────────────────┐
+│  git add coolify.yaml .github/workflows/deploy.yml                      │
+│  git commit -m 'ci: add Coolify deploy pipeline'                        │
+│  git push                                                               │
+│  GitHub Actions pipeline is now active                                  │
+└─────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -38,26 +73,34 @@ Seven components work together once setup is complete. The overview below shows 
 
 ### Overview
 
-```mermaid
-%%{init: {"flowchart": {"htmlLabels": true}}}%%
-graph LR
-    SKILL_REPO["📦 Skill Repo<br/><i>github: claude-skills-deploy</i>"]
-    DEV["💻 Developer Machine<br/><i>skill + credentials</i>"]
-    APP_REPO["📁 App Repo<br/><i>github: your-org/your-app</i>"]
-    CI["⚙ GitHub Actions<br/><i>CI pipeline</i>"]
-    REGISTRY["🐳 GHCR<br/><i>image registry</i>"]
-    COOLIFY["🚀 Coolify<br/><i>your VPS</i>"]
-    DOPPLER["🔐 Doppler<br/><i>secrets</i>"]
-
-    SKILL_REPO  -->|"install"| DEV
-    DEV         -->|"init.sh generates"| APP_REPO
-    DEV         -->|"provision"| COOLIFY
-    DEV         -->|"provision"| DOPPLER
-    APP_REPO    -->|"git push triggers"| CI
-    CI          -->|"push image"| REGISTRY
-    CI          -->|"deploy API"| COOLIFY
-    REGISTRY    -->|"pull image"| COOLIFY
-    DOPPLER     -->|"inject secrets"| COOLIFY
+```
+  ┌─────────────────────┐  install   ┌──────────────────────────────────┐
+  │     Skill Repo      │ ──────────▶│        Developer Machine         │
+  │  claude-skills-     │            │  ~/.claude/skills/setup-coolify/ │
+  │  deploy             │            │  ~/.claude/coolify.json          │
+  └─────────────────────┘            └──────┬──────────┬────────────────┘
+                                  init.sh   │          │ provision
+                                  generates │          │
+                                            ▼          │
+  ┌─────────────────────┐                              │
+  │      App Repo       │  git push                    │
+  │  your-org/your-app  │ triggers                     ▼
+  │  coolify.yaml       │ ──────────▶ ┌────────────────────────────────┐
+  │  deploy.yml         │             │       GitHub Actions (CI)      │
+  └─────────────────────┘             └────────┬────────────┬──────────┘
+                                   push image  │            │ deploy API
+                                               ▼            │
+                                    ┌──────────────┐        │
+                                    │     GHCR     │        │
+                                    │ image registry│       │
+                                    └──────┬───────┘        │
+                                 pull image│                │
+                                           ▼                ▼
+  ┌─────────────────────┐         ┌──────────────────────────────────────┐
+  │      Doppler        │ inject  │             Coolify  (VPS)           │
+  │      secrets        │ secrets▶│  staging.example.com                 │
+  └─────────────────────┘         │  your-app.example.com                │
+                                  └──────────────────────────────────────┘
 ```
 
 **What lives in each component:**
