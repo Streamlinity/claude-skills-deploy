@@ -73,7 +73,7 @@ _(no active requirements — all phases complete)_
 
 ## Evolution
 
-**Current state:** Phase 03 complete — milestone v1.0 fully executed. All requirements validated. Human verification (live E2E teardown) pending real infrastructure run.
+**Current state:** Milestone v1.0 complete. All requirements validated. Live E2E + cleanup verified 2026-05-26 against vultr-stream. Post-verification: 3 bugs fixed in cleanup-deployment.sh; docs expanded (DNS setup, test-environment.md, architecture diagrams).
 
 This document evolves at phase transitions and milestone boundaries.
 

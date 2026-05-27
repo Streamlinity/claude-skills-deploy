@@ -14,9 +14,11 @@ human_verification:
   - test: "Run bash test/e2e.sh against the configured Coolify server"
     expected: "All 9 steps complete, test/results/YYYYMMDD-HHMMSS.json written with 7 fields, staging + production apps remain running after script exits 0, bordered Deployment complete summary printed"
     why_human: "Requires live Coolify server, authenticated Doppler CLI, and real HTTPS DNS resolution"
+    status: "CONFIRMED — 2026-05-22: Coolify shows csd-e2e-2026-05-22-111012 staging + production projects present and running; E2E run verified by operator"
   - test: "Set E2E_SERVER=alternate-server E2E_BASE_DOMAIN=ci.example.com bash test/e2e.sh --keep and observe which server is used and what URL is constructed"
     expected: "Script connects to alternate-server, constructs staging URL as <project>-staging.ci.example.com"
     why_human: "Requires a second server alias in ~/.claude/coolify.json"
+    status: "SKIPPED — 2026-05-22: No second server alias available. Accepted risk — env var substitution verified statically (line 43, 250, 335-336); operator to revisit if/when a second server is configured"
 ---
 
 # Phase 02: Test Framework Verification Report
@@ -114,12 +116,14 @@ None. The previously reported BLOCKER (`"$STAGING_DOMAIN"` unguarded at line 91)
 **Test:** Run `bash test/e2e.sh` against the configured Coolify server
 **Expected:** All 9 steps complete, `test/results/YYYYMMDD-HHMMSS.json` written with 7 fields, staging + production apps remain running after script exits 0, bordered "Deployment complete" summary printed
 **Why human:** Requires live Coolify server, authenticated Doppler CLI, and real HTTPS DNS resolution
+**Status:** ✓ CONFIRMED — 2026-05-22: Coolify shows project `csd-e2e-2026-05-22-111012` with staging + production apps present and running. E2E run confirmed by operator.
 
 #### 2. E2E_SERVER/E2E_BASE_DOMAIN Override
 
 **Test:** `E2E_SERVER=alternate-server E2E_BASE_DOMAIN=ci.example.com bash test/e2e.sh --keep`
 **Expected:** Script connects to alternate-server, constructs staging URL as `<project>-staging.ci.example.com`
 **Why human:** Requires a second server alias in `~/.claude/coolify.json`
+**Status:** SKIPPED — 2026-05-22: No second server alias available. Env var substitution verified statically (lines 43, 250, 335-336). Operator to revisit if a second Coolify server is added to `coolify.json`.
 
 ### Gaps Summary
 

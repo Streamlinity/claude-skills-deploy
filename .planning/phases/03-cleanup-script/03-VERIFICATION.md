@@ -99,11 +99,11 @@ Both CLEAN-01 and CLEAN-02 are the only requirements mapped to Phase 3 in REQUIR
 **Expected:** Script deletes all five resources (staging app, production app, Coolify project, two Docker volumes, Doppler project) and prints the "Cleanup complete" confirmation block. All five resources are absent from the Coolify UI and Doppler dashboard after the script exits 0.
 **Why human:** Requires a live Coolify server, authenticated Doppler CLI, and SSH access to a VPS with Docker. Cannot be verified without real infrastructure.
 
+**Result (2026-05-26): PASSED.** Run against vultr-stream / cicd.streamlinity.com. Both E2E runs (reports 20260522105154 and 20260522111012) cleaned up successfully — all 5 resource types deleted per run. Three bugs also found and fixed post-verification: eval exit-code loss, project delete ordering (retry loop added), and old report schema compat (`project_uuid` fallback).
+
 ### Gaps Summary
 
-No gaps. All truths verified, all artifacts substantive and wired, both requirements satisfied, all smoke tests pass.
-
-The only outstanding item is the live integration test (human verification above), which is gated on Phase 2 having produced a real report file against actual infrastructure — this is an expected and documented dependency, not a gap in the cleanup script itself.
+No gaps. All truths verified, all artifacts substantive and wired, both requirements satisfied, all smoke tests pass. Live human verification completed 2026-05-26.
 
 ---
 
