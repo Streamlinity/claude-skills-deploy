@@ -111,3 +111,8 @@ None yet.
 Last session: 2026-05-22T20:01:01.712Z
 Stopped at: Completed 03-01-PLAN.md
 Resume file: None
+
+### Next Session TODO
+
+- docs(architecture): convert Overview Mermaid to ASCII (same style as pipeline diagram)
+- docs(architecture): audit right-side box boundary alignment across both ASCII diagrams — fix any ragged right edges
