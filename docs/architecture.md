@@ -79,9 +79,10 @@ Seven components work together once setup is complete. The overview below shows 
   │  claude-skills-     │            │  ~/.claude/skills/setup-coolify/ │
   │  deploy             │            │  ~/.claude/coolify.json          │
   └─────────────────────┘            └──────┬──────────┬────────────────┘
-                                  init.sh   │          │ provision
-                                  generates │          │
-                                            ▼          │
+                                  generates │          │ provision
+                                  (init.sh) │          │
+                     ┌──────────────────────┘          │
+                     ▼                                 │
   ┌─────────────────────┐                              │
   │      App Repo       │  git push                    │
   │  your-org/your-app  │ triggers                     ▼
@@ -125,12 +126,12 @@ Every `git push` to `main` triggers this sequence. The image is built **once** a
 git push → main
     │
     ▼
-┌─── GitHub Actions ──────────────────────────────────────────────────────┐
+┌─── GitHub Actions ───────────────────────────────────────────────────────┐
 │                                                                          │
 │  [1] build                                                               │
 │      • docker build, tag sha-abc1234                                     │
-│      • push sha-abc1234 → GHCR                              ┌─────────┐ │
-│                                    image stored ──────────▶ │  GHCR   │ │
+│      • push sha-abc1234 → GHCR                               ┌─────────┐ │
+│                                    image stored ──────────▶  │  GHCR   │ │
 │           │                                                  │ sha-abc │ │
 │           ▼                                                  └────┬────┘ │
 │  [2] deploy-staging                                               │      │
@@ -149,10 +150,10 @@ git push → main
 └───────────────────────────────────────────────────────────────────┼──────┘
          │ deploy API                    │ deploy API               │ image pull
          ▼                              ▼                           ▼
-┌─────────────────────┐    ┌──────────────────────┐       (same image
+┌─────────────────────┐    ┌───────────────────────┐       (same image
 │  Coolify — staging  │    │  Coolify — production │        for both)
 │  staging.example.com│    │  your-app.example.com │
-└─────────────────────┘    └──────────────────────┘
+└─────────────────────┘    └───────────────────────┘
          ▲                              ▲
          └──────────── Doppler ─────────┘
               DOPPLER_TOKEN set on each app
