@@ -57,27 +57,19 @@ Need more? See [docs/setup-guide.md](./docs/setup-guide.md) for the full VPS + C
 
 ## Prerequisites
 
-Before running the install:
+The skill requires Coolify, Doppler, a VPS, DNS records, and some local tooling to all be in place before `/setup-coolify` will work. **[docs/setup-guide.md](./docs/setup-guide.md)** is the authoritative walkthrough — it covers every step from blank VPS to a running pipeline, including DNS configuration, Coolify installation, Doppler project setup, SSH alias, and GitHub Actions secrets.
 
-1. **Claude Code** installed and configured (`~/.claude/` directory exists)
-2. **Doppler CLI** v3.76.0 or later:
-   ```bash
-   curl -Ls --tlsv1.2 --proto "=https" https://cli.doppler.com/install.sh | sh
-   doppler --version
-   ```
-   Note: this skill does NOT use the deprecated `--account` flag (removed in v3.76.0).
-3. **GitHub CLI** (`gh`) for repo operations:
-   ```bash
-   gh --version
-   gh auth status
-   ```
-4. **Python 3 with PyYAML**:
-   ```bash
-   python3 -c "import yaml" || pip3 install pyyaml
-   ```
-5. **A Coolify instance** with HTTPS enabled and a generated API token (see [docs/setup-guide.md](./docs/setup-guide.md) if you need to stand one up)
-6. **A Doppler workspace** with projects/configs scoped per environment (`staging`, `production`)
-7. **An SSH alias** in `~/.ssh/config` for your Coolify host (used to create Docker volumes via SSH)
+If you are setting this up for the first time, start there. Come back here once `~/.claude/coolify.json` is populated and `ssh <your-alias> 'echo ok'` returns cleanly.
+
+**Local tooling checklist** (quick verify before running anything):
+
+```bash
+claude --version                        # Claude Code installed
+doppler --version                       # 3.76.0 or later
+gh auth status                          # GitHub CLI authenticated
+python3 -c "import yaml; print('ok')"   # PyYAML present
+ssh -o BatchMode=yes <ssh-alias> 'echo ok'  # SSH alias resolves
+```
 
 ---
 
@@ -267,7 +259,8 @@ The cleanup script is idempotent — re-running it against the same report is sa
 ## See also
 
 - [Architecture & setup flow diagrams](./docs/architecture.md)
-- [Schema reference](./docs/schema.md)
-- [Per-domain setup guide](./docs/setup-guide.md)
+- [Per-domain setup guide](./docs/setup-guide.md) — VPS, DNS, Coolify, Doppler, SSH, GitHub Actions
+- [Test environment setup](./docs/test-environment.md) — E2E prerequisites, run/inspect/cleanup workflow
 - [Fork guide (strategem.ai example)](./docs/fork-guide.md)
+- [Schema reference](./docs/schema.md)
 - [Coolify + Doppler API reference](./references/api-reference.md)

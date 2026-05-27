@@ -19,6 +19,52 @@ these values with your own throughout.
 
 ---
 
+## DNS setup
+
+All DNS records must exist before you enable HTTPS on Coolify (Step 1) or deploy any
+application. Provision your VPS first (Step 1, items 1–3), note its public IP, then
+create the records below before continuing.
+
+### Records to create
+
+| Purpose | Type | Name | Value | Notes |
+|---------|------|------|-------|-------|
+| Coolify dashboard | A | `coolify.<your-domain>` | `<vps-ip>` | Used by Let's Encrypt and for browser access to the Coolify UI |
+| Deployed app — staging | A | `*.<base-domain>` | `<vps-ip>` | Wildcard covers all `<app>-staging.<base-domain>` subdomains that Coolify creates |
+| Deployed app — production | A | `<app>.<your-domain>` | `<vps-ip>` | One record per production app; add these as you provision apps |
+| E2E test subdomains | — | (covered by wildcard) | — | The `csd-e2e-*-staging.<base-domain>` throwaway domains used by `test/e2e.sh` resolve automatically if the wildcard is in place |
+
+### Reference implementation
+
+For `streamlinity.com` on Vultr IP `149.248.4.46`:
+
+```
+coolify.cicd.streamlinity.com   A   149.248.4.46   # Coolify dashboard + API
+*.cicd.streamlinity.com         A   149.248.4.46   # wildcard for all deployed app subdomains
+skillmap.cicd.streamlinity.com  A   149.248.4.46   # production app (explicit, or covered by wildcard)
+```
+
+> **Wildcard vs. explicit records:** A wildcard (`*.<base-domain>`) covers staging,
+> E2E test throwaway subdomains, and any new apps automatically. Most DNS providers
+> support wildcard A records. If yours does not, you will need to add an explicit A record
+> for each app subdomain (`<app>-staging.<base-domain>`, `<app>-production.<base-domain>`)
+> before Coolify can issue a TLS certificate for it.
+
+### DNS propagation
+
+Let's Encrypt HTTP-01 challenges require the A record to resolve from the public internet
+before certificate issuance will succeed. After creating records, verify propagation:
+
+```bash
+dig +short coolify.<your-domain>          # should return <vps-ip>
+dig +short anything.cicd.<your-domain>    # should return <vps-ip> (wildcard check)
+```
+
+Allow up to 10 minutes for propagation on most providers (Cloudflare is typically
+near-instant). Do not proceed to Step 1 item 5 (enabling HTTPS) until both resolve.
+
+---
+
 ## Step 1: Stand up a Coolify instance
 
 **Recommended VPS providers:** Vultr, Hetzner, AWS EC2. A $6–12/mo VPS (2 vCPU, 4 GB RAM)
@@ -289,96 +335,21 @@ creates a throwaway Coolify project + Doppler project, provisions staging and pr
 apps, deploys a hello-world container, and smoke-tests the live HTTPS URL. Run this once
 after Step 7 to confirm your setup is correct before using the skill on a real repo.
 
-The workflow has three phases: **run → inspect → cleanup.**
+See **[docs/test-environment.md](./test-environment.md)** for the full guide including
+prerequisites (test image setup, required env vars), the run/inspect/cleanup workflow,
+the report file format, and a troubleshooting table.
 
----
-
-### Prerequisites for E2E
-
-Before the test can run, the hello-world test image must exist in GHCR. This is a
-one-time setup covered in [Step 6b](#step-6b-store-ghcr_token-for-local-e2e-testing).
-If you completed Step 6b, you are ready.
-
-Your server alias must be set (passed as `--server` or via `E2E_SERVER`), and a base
-domain for throwaway subdomains must be reachable from the VPS (the test creates
-`<test-project>-staging.<base-domain>` automatically).
-
----
-
-### Phase 1: Run
+**Quick reference** (assuming Step 6b is complete):
 
 ```bash
-E2E_SERVER=<alias> bash test/e2e.sh
-```
+# Run the test (~3-5 minutes)
+E2E_SERVER=<alias> E2E_BASE_DOMAIN=<base-domain> bash test/e2e.sh
 
-Replace `<alias>` with the server alias key from `~/.claude/coolify.json` (e.g.
-`vultr-stream`). The base domain defaults to the `base_domain` configured for that
-server; override it with `E2E_BASE_DOMAIN=ci.example.com` if needed.
+# Inspect: browse to the staging URL printed in the output
 
-The test (~3-5 minutes) runs these steps in order:
-1. Verifies prerequisites (Coolify API reachable, Doppler CLI authenticated, test image pullable)
-2. Creates a throwaway Doppler project (`csd-e2e-YYYYMMDDHHMMSS`) with `stg`/`prd` configs
-3. Generates a temporary `coolify.yaml` pointing at the throwaway project
-4. Runs `validate.sh` (dry-run check)
-5. Runs `provision.sh` (creates Coolify project + staging + production apps, wires Doppler tokens)
-6. Triggers a staging deploy and polls until the container is running
-7. Triggers a production deploy
-8. Smoke-tests the staging HTTPS URL (`/api/health` → HTTP 200 + body check)
-9. Writes a JSON report to `test/results/YYYYMMDDHHMMSS.json`
-
-**On success:** staging and production apps are left running. The staging URL is printed.
-A report file is written — this is the handoff to cleanup (see Phase 3).
-
-**On failure:** all resources are torn down automatically via `trap EXIT`. The report is
-written regardless of outcome. Use `--keep` to suppress failure teardown if you want to
-inspect the broken state manually.
-
----
-
-### Phase 2: Inspect
-
-After a successful run, open the staging URL printed in the terminal output:
-
-```
-https://<test-project>-staging.<base-domain>/api/health   → 200 OK
-https://<test-project>-staging.<base-domain>/             → hello-world page
-```
-
-This confirms the full provision → deploy → HTTPS loop works against your actual
-Coolify instance. Take a moment to verify in Coolify UI that both the staging and
-production apps appear in the throwaway project with a green running status.
-
----
-
-### Phase 3: Cleanup
-
-When you are done inspecting, run the cleanup script using the report file written in
-Phase 1:
-
-```bash
+# Clean up when done
 bash test/cleanup-deployment.sh test/results/YYYYMMDDHHMMSS.json
 ```
-
-Use the actual filename from `test/results/` — it is also printed at the end of the
-test run output.
-
-**How the handoff works:** `test/e2e.sh` writes a JSON report containing every
-identifier the cleanup script needs — Coolify project UUID, staging and production app
-UUIDs, SSH host alias, Doppler project slug, and server alias. The cleanup script reads
-this file and requires nothing else. You do not need to look up any IDs manually.
-
-**What cleanup deletes** (in dependency order):
-
-| Resource | How |
-|----------|-----|
-| Staging app | Coolify API DELETE `/applications/<uuid>` |
-| Production app | Coolify API DELETE `/applications/<uuid>` |
-| Coolify project | Coolify API DELETE `/projects/<uuid>` (retried up to 3× after apps clear) |
-| Docker volumes (×2) | SSH to VPS: `docker volume rm <app-uuid>-doppler-cache` |
-| Doppler project | `doppler projects delete <slug>` |
-
-The cleanup script prints a confirmation block listing everything it deleted and exits
-0. It is idempotent — safe to re-run if interrupted.
 
 ---
 
