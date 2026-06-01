@@ -50,7 +50,7 @@ jobs:
         run: |
           gh api \
             --method PATCH \
-            "/user/packages/container/csd-hello-world" \
+            "/orgs/${GHCR_OWNER}/packages/container/csd-hello-world" \
             -f visibility=public \
             && echo "✓ package visibility set to public" \
             || echo "⚠ could not set visibility — set manually in GitHub package settings"
