@@ -15,23 +15,19 @@ coolify_load_server() {
     echo "ERROR: $COOLIFY_REGISTRY not found. Run /setup-coolify init first." >&2
     return 1
   fi
-  local entry
-  entry=$(python3 -c "
+  local exists
+  exists=$(python3 -c "
 import json,sys
 d=json.load(open('$COOLIFY_REGISTRY'))
-e=d.get('servers',{}).get('$alias')
-if not e:
-    print('MISSING'); sys.exit(0)
-print(e['url'] + '|' + e['api_key'] + '|' + e.get('doppler_account',''))
+print('yes' if d.get('servers',{}).get('$alias') else 'no')
 ")
-  if [ "$entry" = "MISSING" ]; then
+  if [ "$exists" != "yes" ]; then
     echo "ERROR: server alias '$alias' not found in $COOLIFY_REGISTRY" >&2
     return 1
   fi
-  COOLIFY_URL="${entry%%|*}"
-  local rest="${entry#*|}"
-  COOLIFY_API_KEY="${rest%%|*}"
-  COOLIFY_DOPPLER_ACCOUNT="${rest##*|}"
+  COOLIFY_URL=$(python3 -c "import json; print(json.load(open('$COOLIFY_REGISTRY'))['servers']['$alias']['url'])")
+  COOLIFY_API_KEY=$(python3 -c "import json; print(json.load(open('$COOLIFY_REGISTRY'))['servers']['$alias']['api_key'])")
+  COOLIFY_DOPPLER_ACCOUNT=$(python3 -c "import json; print(json.load(open('$COOLIFY_REGISTRY'))['servers']['$alias'].get('doppler_account',''))")
   export COOLIFY_URL COOLIFY_API_KEY COOLIFY_DOPPLER_ACCOUNT
 }
 
