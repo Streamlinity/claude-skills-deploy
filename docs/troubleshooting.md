@@ -122,6 +122,23 @@ gh api --method PATCH "/orgs/${GHCR_OWNER}/packages/container/my-image" -f visib
 
 **Clarification:** In the Coolify UI, the "allow all" value is `0.0.0.0` (or leave the field empty). Both are equivalent to `*`. Set the field to `0.0.0.0` and save.
 
+### Cloudflare Error 1000 — `DNS points to prohibited IP`
+
+**Symptom:** Browser shows `Error 1000: DNS points to prohibited IP` when visiting the domain. The Cloudflare DNS dashboard shows A records with content values like `172.67.x.x` or `104.21.x.x`.
+
+**Cause:** The A record's content is set to one of Cloudflare's own anycast IPs, and the proxy is also enabled — creating a routing loop. This can happen when DNS records were imported or auto-populated incorrectly.
+
+**Fix:**
+1. In Cloudflare DNS, delete all A records for the affected domain that have `172.67.x.x`, `104.21.x.x`, or any other Cloudflare-owned IP as their content.
+2. Add a new A record pointing to your actual VPS IP (e.g., `87.99.142.159`).
+3. Set **Proxy status** to **DNS only** (grey cloud) — required when the VPS runs its own TLS termination (e.g., Traefik with Let's Encrypt).
+
+```
+Name: demo                 Type: A    Content: <vps-ip>    Proxy: DNS only
+```
+
+> **Note:** All VPS-hosted subdomains routed through Traefik should use DNS only. If Cloudflare's orange-cloud proxy is enabled, Let's Encrypt HTTP-01 challenges will fail because the challenge request hits Cloudflare's edge, not your VPS.
+
 ---
 
 ## Coolify Proxy (Traefik)
@@ -180,3 +197,70 @@ The `redirect-to-https@file` middleware is defined in `/data/coolify/proxy/dynam
 cp docker-compose.yml docker-compose.yml.bak
 cp Caddyfile Caddyfile.bak
 ```
+
+### HTTPS still fails after fixing DNS — ACME challenge failures are cached
+
+**Symptom:** After correcting a DNS misconfiguration (e.g., wrong IP, Cloudflare proxy in front of the VPS), the domain still gets a certificate error even though `dig +short <domain>` now returns the correct VPS IP. Traefik logs show repeated `Unable to obtain ACME certificate` errors with old timestamps.
+
+**Cause:** Traefik caches failed ACME attempts in `/data/coolify/proxy/acme.json`. After multiple failures, it backs off exponentially (up to several hours) before retrying. Restarting the proxy alone does not clear this backoff — the cached state is reloaded from `acme.json` on startup.
+
+**Fix:** Remove the stale certificate entry for the domain from `acme.json`, then restart the proxy:
+
+```bash
+# On the Coolify VPS:
+python3 - << 'PY'
+import json
+path = "/data/coolify/proxy/acme.json"
+with open(path) as f:
+    d = json.load(f)
+before = len(d["letsencrypt"]["Certificates"])
+d["letsencrypt"]["Certificates"] = [
+    c for c in d["letsencrypt"]["Certificates"]
+    if c.get("domain", {}).get("main") != "your-domain.com"
+]
+print(f"Removed {before - len(d['letsencrypt']['Certificates'])} entry/entries")
+with open(path, "w") as f:
+    json.dump(d, f, indent=2)
+PY
+
+cd /data/coolify/proxy && docker compose restart
+```
+
+Traefik will request a fresh certificate on restart. Verify success after ~30 seconds:
+```bash
+docker logs coolify-proxy --since 1m 2>&1 | grep -i "certif\|acme\|ERR"
+```
+
+A valid cert should appear in `acme.json` for the domain with an `Issuer` from Let's Encrypt.
+
+### Pre-existing Caddy service returns "Client sent an HTTP request to an HTTPS server"
+
+**Symptom:** After routing a Caddy service through Traefik (removing Caddy's port 80/443 bindings and adding Traefik labels), HTTPS requests to the domain return HTTP 400 with body `Client sent an HTTP request to an HTTPS server.`
+
+**Cause:** Caddy's `auto_https off` global setting disables TLS certificate management, but bare hostnames in site blocks (e.g., `example.com {`) still bind to port **443** by default and still expect TLS. Traefik forwards plain HTTP to that port, causing the mismatch.
+
+**Fix:** Explicitly prefix all site block addresses in `Caddyfile` with `http://` to force Caddy to listen on port 80:
+
+```caddyfile
+{
+    auto_https off
+}
+
+# Before: example.com {
+# After:
+http://example.com {
+    ...
+}
+
+http://other.example.com {
+    ...
+}
+```
+
+Then restart the service. Verify with:
+```bash
+docker exec <caddy-container> netstat -tlnp | grep LISTEN
+# Should show :::80, not :::443
+```
+
+The Traefik label `traefik.http.services.<name>.loadbalancer.server.port=80` is then correct and no further label changes are needed.
