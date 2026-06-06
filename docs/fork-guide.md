@@ -5,19 +5,17 @@ need to fork the repository. You only need to change configuration.
 
 ---
 
-## When to fork vs. just configure
+## When to fork vs. just configure (Multi-Domain Rules)
 
-**You do NOT need to fork** to use this skill for a new domain. The skill is fully
-domain-agnostic — every domain-specific value lives in `coolify.yaml` (committed per
-repo) and `~/.claude/coolify.json` (machine-local credentials). You configure, not fork.
+To manage deployments across different domains and organizations without documentation circularity, follow these three simple rules:
 
-**You DO want a true GitHub fork if:**
-- Your organization wants its own copy with custom lib functions or defaults
-- You want to invoke the skill under a different name (e.g., `/setup-myorg-coolify`)
-- You want to contribute upstream changes back to this repo
+1. **Same-Domain Development (e.g. `streamlinity.com`):** A direct **clone** of the upstream repository (`anatesan-stream/claude-skills-deploy`) is the correct approach. No fork is needed.
+2. **First Repo in a Different Domain/Org (e.g. `strategem.ai`):** You should **fork** `claude-skills-deploy` to your organization's GitHub namespace. This establishes a master copy where you can:
+   * Customize the generated GitHub Actions deploy workflows (`init/deploy.yml.template`) to match the new domain's compliance, build systems, or security rules.
+   * Modify bootstrapper defaults (e.g., in `init/init.sh`) so developers aren't entering the same server arguments repeatedly during setup.
+3. **Subsequent Repos in the Same New Domain:** These do **not** require new forks. Developers or CI systems simply **clone** your organization's existing fork.
 
-For the vast majority of use cases — including setting up a second domain under the same
-developer account — configuration is all you need.
+For a developer working on a second domain under their own account, simple configuration changes (no fork) is all that is required. For organization-wide standards, forking for the first repo is the recommended pathway.
 
 ---
 
@@ -236,3 +234,10 @@ Steps to fork:
    git remote add upstream git@github.com:anatesan-stream/claude-skills-deploy.git
    git fetch upstream && git merge upstream/main
    ```
+
+---
+
+## Next Steps
+
+- **Return to the Setup Guide:** Go back to **[docs/setup-guide.md](./setup-guide.md)** to continue bootstrapping your application repositories.
+- **Review Field Schemas:** Refer to **[docs/schema.md](./schema.md)** for a full field-by-field reference of `coolify.yaml` and `coolify.json`.

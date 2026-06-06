@@ -10,8 +10,9 @@ Run through these steps once per domain. Steps ①–③ and ⑤–⑦ are CLI c
 
 ```
 ┌─── ① Install skill ─────────────────────────────────────────────────────┐
-│  • Fork anatesan-stream/claude-skills-deploy on GitHub                  │
-│  • Clone your fork to ~/.claude/skills/setup-coolify/                   │
+│  • Clone anatesan-stream/claude-skills-deploy to                        │
+│    ~/.claude/skills/setup-coolify/                                      │
+│  • (Or fork first on GitHub if customizing scripts / workflow templates)│
 └─────────────────────────────────────────────────────────────────────────┘
     │
     ▼
@@ -108,7 +109,7 @@ Seven components work together once setup is complete. The overview below shows 
 
 | Component | Contents |
 |-----------|----------|
-| **Skill Repo** | `SKILL.md`, `scripts/`, `init/`, `docs/`, `references/` — the skill itself, installed once per machine |
+| **Skill Repo** | Upstream repository (anatesan-stream/claude-skills-deploy) containing `SKILL.md`, `scripts/`, `init/`, `docs/`, `references/` |
 | **Developer Machine** | `~/.claude/skills/setup-coolify/` (installed skill) · `~/.claude/coolify.json` (Coolify URL, API key, Doppler account, ssh_host) |
 | **App Repo** | `coolify.yaml` (deploy manifest, committed, no secrets) · `.github/workflows/deploy.yml` (CI pipeline, committed) |
 | **GitHub Actions** | Build job · deploy-staging job · smoke-test · deploy-production job (see pipeline detail below) |
@@ -176,9 +177,7 @@ git push → main
 
 ---
 
-## See also
+## Next Steps
 
-- [Setup guide](./setup-guide.md) — step-by-step walkthrough with concrete commands
-- [Test environment](./test-environment.md) — E2E prerequisites, run/inspect/cleanup workflow
-- [Schema reference](./schema.md) — all `coolify.yaml` and `coolify.json` fields documented
-- [Fork guide](./fork-guide.md) — using this skill for a second domain (e.g. strategem.ai)
+- Go to the [Setup Guide](./setup-guide.md) to stand up your pipeline step-by-step.
+- Review the [Schema Reference](./schema.md) to understand the details of `coolify.yaml` and `coolify.json`.

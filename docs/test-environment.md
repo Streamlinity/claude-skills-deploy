@@ -250,3 +250,10 @@ re-run against the same report if interrupted.
 | `⚠ could not delete <fqdn>` during cleanup | Cloudflare API token expired or wrong permissions | Verify the token in `~/.claude/coolify.json` has **Zone → DNS → Edit** permission, then delete the orphaned A records manually in Cloudflare dashboard. |
 | `MISSING:DNS_CREDENTIAL:...` in validate output | DNS provider is `cloudflare` but the token is not in the configured source | Add `cloudflare_api_token` to the server entry in `~/.claude/coolify.json` (if `credential_source: coolify_json`) or set it as a Doppler secret (if `credential_source: doppler`). |
 | Doppler delete fails | `csd-hello-test-*` project already deleted or CLI not authenticated | Re-authenticate with `doppler login` and retry, or delete manually at `dashboard.doppler.com` |
+
+---
+
+## Next Steps
+
+- **Return to the Setup Guide:** Go back to **[docs/setup-guide.md](./setup-guide.md)** to continue bootstrapping your application repositories.
+- **Review Field Schemas:** Refer to **[docs/schema.md](./schema.md)** for a full field-by-field reference of `coolify.yaml` and `coolify.json`.

@@ -206,21 +206,17 @@ open) and that your public key is in `root@<ip>:~/.ssh/authorized_keys`.
 
 ## Step 5: Configure ~/.claude/coolify.json
 
-Create (or update) `~/.claude/coolify.json` with your server entry. Use the exact schema
-below (see [docs/schema.md](./schema.md) for the canonical field reference):
+Create (or update) `~/.claude/coolify.json` with your server entry. You can write this file manually or generate it interactively.
 
-```json
-{
-  "servers": {
-    "<alias>": {
-      "url": "https://<coolify-domain>",
-      "api_key": "<from-step-2>",
-      "doppler_account": "<doppler-workspace-alias>",
-      "ssh_host": "<from-step-3>"
-    }
-  }
-}
+**Option A: Interactive Flow (Recommended)**
+Run:
+```bash
+/setup-coolify init
 ```
+This prompts you for the server alias, URL, API key, Doppler account, and SSH host, then merges the new entry into `~/.claude/coolify.json` and automatically sets the correct permissions.
+
+**Option B: Manual Setup**
+Create the file at `~/.claude/coolify.json` using this format (see **[docs/schema.md](./schema.md#coolifyjson--machine-local-credentials)** for the canonical field reference and detailed description of each property):
 
 Concrete example for the reference implementation (with optional DNS fields):
 ```json
@@ -249,17 +245,6 @@ The `cloudflare_api_token` and `dns_default` fields are optional. Add them if yo
 ```bash
 chmod 0600 ~/.claude/coolify.json
 ```
-
-**Alternatively,** run the interactive prompts which write this file for you:
-```bash
-/setup-coolify init
-```
-This prompts for server alias, URL, API key, Doppler account, and SSH host, then merges
-the new entry into `~/.claude/coolify.json` and sets permissions.
-
-> **Note:** `ssh_host` is required. Earlier Phase 7 builds defaulted to `v_cicd_stream`
-> when absent — that fallback has been removed. Scripts fail clearly if the field is
-> missing.
 
 ---
 
@@ -416,3 +401,10 @@ bash test/cleanup-deployment.sh test/results/YYYYMMDDHHMMSS.json
    stored in Coolify — they are pulled from Doppler at container start.
 
 5. **Visit the staging URL** in a browser. The app should load without errors.
+
+---
+
+## Next Steps
+
+- **Verify your pipeline:** Follow **[docs/test-environment.md](./test-environment.md)** to run the end-to-end integration tests on your new server.
+- **Deploying to a different domain / organization?** Review the **[docs/fork-guide.md](./fork-guide.md)** to understand the clone vs. fork workflow for organization-wide custom templates.
