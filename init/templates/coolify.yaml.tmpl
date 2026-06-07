@@ -19,6 +19,14 @@ project: {{PROJECT}}
 #         Run /setup-coolify init to create ~/.claude/coolify.json if you haven't yet.
 server: {{SERVER}}
 
+# CHANGE: Coolify-registered server name where apps are deployed.
+#         When absent or commented out (the default), apps deploy on the Coolify host
+#         (server_name from coolify.json, defaulting to 'localhost'). Set this only
+#         when staging/production apps should run on a separately-registered VPS.
+#         If set, also add 'deploy_ssh_host' and (optionally) 'deploy_vps_ip' to the
+#         matching server entry in ~/.claude/coolify.json. See docs/schema.md.
+{{DEPLOY_SERVER_LINE}}
+
 # CHANGE: Doppler project slug — usually same as project. Leave blank when running
 #         init.sh to auto-default to the project name.
 doppler_project: {{DOPPLER_PROJECT}}

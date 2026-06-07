@@ -50,6 +50,16 @@ PROJECT="${PROJECT:-$DIR_NAME}"
 read -rp "Server alias (key in ~/.claude/coolify.json, e.g. vultr-stream): " SERVER
 [ -n "$SERVER" ] || { echo "ERROR: server alias required" >&2; exit 1; }
 
+# MSRV-01: optional deploy_server. Default blank = deploy to the Coolify host (current behavior).
+# When set, names a Coolify-registered server (separate VPS) for app deployment.
+read -rp "Deploy server (Coolify-registered server name; leave blank to deploy on the Coolify host) []: " DEPLOY_SERVER
+DEPLOY_SERVER="${DEPLOY_SERVER:-}"
+if [ -n "$DEPLOY_SERVER" ]; then
+  DEPLOY_SERVER_LINE="deploy_server: $DEPLOY_SERVER"
+else
+  DEPLOY_SERVER_LINE="# deploy_server:   # uncomment + set to a Coolify-registered server name to deploy on a separate VPS"
+fi
+
 read -rp "Doppler project slug [$PROJECT]: " DOPPLER_PROJECT
 DOPPLER_PROJECT="${DOPPLER_PROJECT:-$PROJECT}"
 
@@ -124,12 +134,14 @@ python3 - "$TEMPLATE" "$PROJECT" "$SERVER" "$DOPPLER_PROJECT" "$REGISTRY_IMAGE" 
                       "$STAGING_DOMAIN" "$PROD_DOMAIN" "$BUILD_CONTEXT" "$BUILD_DOCKERFILE" \
                       "$ENV_VARS_LIST" \
                       "$DNS_PROVIDER" "$DNS_ZONE_NAME" "$DNS_CREDENTIAL_SOURCE" "$DNS_CREDENTIAL_KEY" \
+                      "$DEPLOY_SERVER_LINE" \
                       > ./coolify.yaml <<'PY'
 import sys
 tmpl_path = sys.argv[1]
 project, server, doppler_proj, registry_img, staging_domain, prod_domain, \
     build_ctx, build_df, env_vars_list, \
-    dns_provider, dns_zone_name, dns_cred_source, dns_cred_key = sys.argv[2:15]
+    dns_provider, dns_zone_name, dns_cred_source, dns_cred_key, \
+    deploy_server_line = sys.argv[2:16]
 with open(tmpl_path) as f:
     content = f.read()
 subs = {
@@ -146,6 +158,7 @@ subs = {
     '{{DNS_ZONE_NAME}}': dns_zone_name,
     '{{DNS_CREDENTIAL_SOURCE}}': dns_cred_source,
     '{{DNS_CREDENTIAL_KEY}}': dns_cred_key,
+    '{{DEPLOY_SERVER_LINE}}': deploy_server_line,
 }
 for tok, val in subs.items():
     content = content.replace(tok, val)
