@@ -26,6 +26,7 @@ eval "$(python3 -c "
 import yaml,sys
 d=yaml.safe_load(open('$YAML_PATH'))
 print(f\"PROJECT='{d.get('project','')}'\")
+print(f\"DEPLOY_SERVER='{d.get('deploy_server','')}'\")
 print(f\"SERVER='{d.get('server','')}'\")
 print(f\"DOPPLER_PROJECT='{d.get('doppler_project','')}'\")
 print(f\"REGISTRY_IMAGE='{d.get('registry',{}).get('image','')}'\")
@@ -83,6 +84,22 @@ if ! coolify_curl GET "/projects" >/dev/null 2>&1; then
   exit 1
 fi
 echo "validate: Coolify API reachable"
+
+# MSRV-03: when deploy_server is set in coolify.yaml, verify it exists in Coolify.
+if [ -n "${DEPLOY_SERVER:-}" ]; then
+  DEPLOY_SRV_UUID=$(coolify_get_server_uuid "$DEPLOY_SERVER")
+  if [ -z "$DEPLOY_SRV_UUID" ]; then
+    AVAILABLE=$(coolify_curl GET "/servers" 2>/dev/null | python3 -c "
+import json,sys
+try: srvs=json.load(sys.stdin)
+except: sys.exit(0)
+print(', '.join(s.get('name','') for s in srvs if s.get('name')))
+" 2>/dev/null || echo "<unable to list>")
+    fail "INVALID:coolify.yaml:deploy_server '$DEPLOY_SERVER' not registered in Coolify (available: $AVAILABLE)"
+  else
+    echo "validate: deploy_server '$DEPLOY_SERVER' -> uuid=$DEPLOY_SRV_UUID OK"
+  fi
+fi
 
 # Verify every env_vars key exists in BOTH staging and production with non-placeholder values
 for ENV in "$STAGING_DOPPLER" "$PROD_DOPPLER"; do

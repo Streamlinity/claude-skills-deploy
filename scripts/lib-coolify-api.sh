@@ -79,9 +79,25 @@ for s in json.load(sys.stdin):
 
 coolify_get_destination_uuid() {
   local server_uuid="$1"
-  # GET /servers does not currently expose destinations directly; some Coolify versions
-  # require GET /destinations or GET /servers/{uuid}. Try /destinations first, fall back.
+  # Strategy 1 (preferred): scan existing apps for matching destination.server.uuid
   local out
+  out=$(coolify_curl GET "/applications" 2>/dev/null || echo "")
+  if [ -n "$out" ]; then
+    local found
+    found=$(echo "$out" | python3 -c "
+import json,sys
+try: apps=json.load(sys.stdin)
+except: sys.exit(0)
+if not isinstance(apps,list): sys.exit(0)
+for a in apps:
+    d=a.get('destination',{}) or {}
+    s=(d.get('server') or {})
+    if s.get('uuid')=='$server_uuid':
+        print(d.get('uuid','')); break
+" 2>/dev/null || echo "")
+    [ -n "$found" ] && echo "$found" && return 0
+  fi
+  # Strategy 2 (fallback): GET /destinations (works on some Coolify versions)
   out=$(coolify_curl GET "/destinations" 2>/dev/null || echo "")
   if [ -n "$out" ]; then
     echo "$out" | python3 -c "
@@ -92,10 +108,9 @@ if isinstance(d,list):
     for x in d:
         if x.get('server',{}).get('uuid')=='$server_uuid' or x.get('server_uuid')=='$server_uuid':
             print(x.get('uuid','')); break
-    else:
-        if d: print(d[0].get('uuid',''))
-"
+" 2>/dev/null || true
   fi
+  # Strategy 3 (implicit): empty stdout — Coolify auto-assigns at create time
 }
 
 coolify_get_github_app_uuid() {

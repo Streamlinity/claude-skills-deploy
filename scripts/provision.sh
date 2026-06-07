@@ -24,6 +24,7 @@ eval "$(python3 -c "
 import yaml
 d=yaml.safe_load(open('$YAML_PATH'))
 print(f\"PROJECT='{d.get('project','')}'\")
+print(f\"DEPLOY_SERVER='{d.get('deploy_server','')}'\")
 print(f\"SERVER_ALIAS='{d.get('server','')}'\")
 print(f\"DOPPLER_PROJECT='{d.get('doppler_project','')}'\")
 img=d.get('registry',{}).get('image','')
@@ -58,11 +59,19 @@ d=json.load(open('$HOME/.claude/coolify.json'))
 e=d.get('servers',{}).get('$SERVER_ALIAS',{})
 print(e.get('server_name','localhost'))
 ")
-SERVER_UUID=$(coolify_get_server_uuid "$SERVER_NAME")
-[ -n "$SERVER_UUID" ] || { echo "ERROR: server '$SERVER_NAME' not found in Coolify (configured via servers.$SERVER_ALIAS.server_name in ~/.claude/coolify.json; default 'localhost')" >&2; exit 1; }
-DEST_UUID=$(coolify_get_destination_uuid "$SERVER_UUID")
-# destination_uuid is optional in the Coolify API for single-node installs
-echo "  server_name=$SERVER_NAME server_uuid=$SERVER_UUID dest_uuid=${DEST_UUID:-<auto>}"
+# MSRV-01/02: deploy_server in coolify.yaml overrides server_name from coolify.json.
+# Fallback chain: deploy_server -> server_name -> "localhost".
+if [ -n "${DEPLOY_SERVER:-}" ]; then
+  DEPLOY_SERVER_NAME="$DEPLOY_SERVER"
+  DEPLOY_SERVER_SOURCE="coolify.yaml deploy_server"
+else
+  DEPLOY_SERVER_NAME="$SERVER_NAME"
+  DEPLOY_SERVER_SOURCE="coolify.json servers.$SERVER_ALIAS.server_name (default 'localhost')"
+fi
+DEPLOY_SERVER_UUID=$(coolify_get_server_uuid "$DEPLOY_SERVER_NAME")
+[ -n "$DEPLOY_SERVER_UUID" ] || { echo "ERROR: server '$DEPLOY_SERVER_NAME' not found in Coolify (source: $DEPLOY_SERVER_SOURCE)" >&2; exit 1; }
+DEST_UUID=$(coolify_get_destination_uuid "$DEPLOY_SERVER_UUID")
+echo "  deploy_server=$DEPLOY_SERVER_NAME deploy_server_uuid=$DEPLOY_SERVER_UUID dest_uuid=${DEST_UUID:-<auto>} (source: $DEPLOY_SERVER_SOURCE)"
 
 # SSH host: read from ~/.claude/coolify.json server entry. REQUIRED — no fallback.
 # provision.sh creates a Docker volume on the Coolify server via SSH, so this must be set.
@@ -80,29 +89,62 @@ if [ -z "$SSH_HOST" ]; then
 fi
 echo "  ssh_host=$SSH_HOST"
 
-# Resolve VPS public IP — needed for DNS A record creation.
-# Strategy: read vps_ip from coolify.json if present (avoids SSH round-trip on re-runs);
-# otherwise resolve via SSH using ifconfig.me.
-VPS_IP=$(python3 -c "
+# MSRV-04: deploy_ssh_host overrides ssh_host for SSH ops on the deployment VPS.
+DEPLOY_SSH_HOST=$(python3 -c "
+import json
+d=json.load(open('$HOME/.claude/coolify.json'))
+e=d.get('servers',{}).get('$SERVER_ALIAS',{})
+print(e.get('deploy_ssh_host','') or e.get('ssh_host',''))
+")
+if [ -z "$DEPLOY_SSH_HOST" ]; then
+  echo "ERROR: could not resolve deploy_ssh_host or ssh_host for $SERVER_ALIAS" >&2; exit 1
+fi
+echo "  deploy_ssh_host=$DEPLOY_SSH_HOST"
+
+# MSRV-05: DNS A records target the deploy server's public IP.
+# Resolution order:
+#   1. coolify.json servers.$SERVER_ALIAS.deploy_vps_ip (explicit for deploy server)
+#   2. GET /servers/$DEPLOY_SERVER_UUID .ip (skip if "host.docker.internal")
+#   3. coolify.json servers.$SERVER_ALIAS.vps_ip (only meaningful when deploy_server unset — localhost case)
+#   4. ssh $DEPLOY_SSH_HOST + ifconfig.me
+DEPLOY_VPS_IP=$(python3 -c "
+import json
+d=json.load(open('$HOME/.claude/coolify.json'))
+print(d.get('servers',{}).get('$SERVER_ALIAS',{}).get('deploy_vps_ip',''))
+")
+DEPLOY_VPS_IP_SOURCE="coolify.json deploy_vps_ip"
+if [ -z "$DEPLOY_VPS_IP" ]; then
+  DEPLOY_VPS_IP=$(coolify_curl GET "/servers/$DEPLOY_SERVER_UUID" 2>/dev/null | python3 -c "
+import json,sys
+try: ip=json.load(sys.stdin).get('ip','')
+except: ip=''
+# Skip 'host.docker.internal' — it's the Coolify host internal alias, not a public IP.
+if ip and ip != 'host.docker.internal': print(ip)
+" 2>/dev/null || echo "")
+  [ -n "$DEPLOY_VPS_IP" ] && DEPLOY_VPS_IP_SOURCE="Coolify API GET /servers/$DEPLOY_SERVER_UUID.ip"
+fi
+if [ -z "$DEPLOY_VPS_IP" ] && [ -z "${DEPLOY_SERVER:-}" ]; then
+  # localhost case only: fall back to vps_ip (which describes the Coolify host)
+  DEPLOY_VPS_IP=$(python3 -c "
 import json
 d=json.load(open('$HOME/.claude/coolify.json'))
 print(d.get('servers',{}).get('$SERVER_ALIAS',{}).get('vps_ip',''))
 ")
-if [ -z "$VPS_IP" ]; then
-  VPS_IP=$(ssh "$SSH_HOST" "curl -s -4 ifconfig.me" 2>/dev/null | tr -d '[:space:]' || echo "")
-  if [ -z "$VPS_IP" ]; then
-    echo "ERROR: could not determine VPS public IP for $SSH_HOST. Add 'vps_ip' to coolify.json servers.$SERVER_ALIAS or check SSH connectivity." >&2
-    exit 1
-  fi
-  # Validate dotted-quad format
-  if ! echo "$VPS_IP" | grep -qE '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$'; then
-    echo "ERROR: VPS IP resolved to '$VPS_IP' which is not a valid IPv4 address" >&2
-    exit 1
-  fi
-  echo "  vps_ip=$VPS_IP (source: ssh)"
-else
-  echo "  vps_ip=$VPS_IP (source: coolify.json)"
+  [ -n "$DEPLOY_VPS_IP" ] && DEPLOY_VPS_IP_SOURCE="coolify.json vps_ip (localhost fallback)"
 fi
+if [ -z "$DEPLOY_VPS_IP" ]; then
+  DEPLOY_VPS_IP=$(ssh "$DEPLOY_SSH_HOST" "curl -s -4 ifconfig.me" 2>/dev/null | tr -d '[:space:]' || echo "")
+  [ -n "$DEPLOY_VPS_IP" ] && DEPLOY_VPS_IP_SOURCE="ssh $DEPLOY_SSH_HOST ifconfig.me"
+fi
+if [ -z "$DEPLOY_VPS_IP" ]; then
+  echo "ERROR: could not determine deploy VPS public IP. Add 'deploy_vps_ip' to coolify.json servers.$SERVER_ALIAS or check SSH connectivity to $DEPLOY_SSH_HOST." >&2
+  exit 1
+fi
+if ! echo "$DEPLOY_VPS_IP" | grep -qE '^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$'; then
+  echo "ERROR: deploy VPS IP resolved to '$DEPLOY_VPS_IP' which is not a valid IPv4 address" >&2
+  exit 1
+fi
+echo "  deploy_vps_ip=$DEPLOY_VPS_IP (source: $DEPLOY_VPS_IP_SOURCE)"
 
 # Parse dns: block and load credentials if provider is not none
 DNS_ENABLED=false
@@ -158,7 +200,7 @@ for ENV_NAME in staging production; do
 import json
 d = {
   'project_uuid': '$PROJECT_UUID',
-  'server_uuid': '$SERVER_UUID',
+  'server_uuid': '$DEPLOY_SERVER_UUID',
   'environment_name': 'production',
   'name': '$APP_NAME',
   'docker_registry_image_name': '$REGISTRY_IMAGE_NAME',
@@ -176,6 +218,22 @@ print(json.dumps(d))
       || coolify_curl POST "/applications/private-github-app" "$BODY")
     APP_UUID=$(echo "$CREATE_RESP" | python3 -c "import json,sys; print(json.load(sys.stdin).get('uuid',''))")
     [ -n "$APP_UUID" ] || { echo "ERROR: failed to create app $APP_NAME. Response: $CREATE_RESP" >&2; exit 1; }
+    
+    # MSRV-02 verification: confirm app landed on the intended server.
+    ACTUAL_SRV=$(coolify_curl GET "/applications/$APP_UUID" 2>/dev/null | python3 -c "
+    import json,sys
+    try: a=json.load(sys.stdin)
+    except: sys.exit(0)
+    d=(a.get('destination') or {}); s=(d.get('server') or {})
+    print(s.get('name','') + '|' + s.get('uuid',''))
+    " 2>/dev/null || echo "|")
+    ACTUAL_SRV_NAME="${ACTUAL_SRV%%|*}"
+    ACTUAL_SRV_UUID="${ACTUAL_SRV##*|}"
+    if [ -n "$ACTUAL_SRV_UUID" ] && [ "$ACTUAL_SRV_UUID" != "$DEPLOY_SERVER_UUID" ]; then
+      echo "ERROR: app $APP_NAME landed on Coolify server '$ACTUAL_SRV_NAME' ($ACTUAL_SRV_UUID); expected '$DEPLOY_SERVER_NAME' ($DEPLOY_SERVER_UUID)." >&2
+      echo "Verify Coolify destination model for server '$DEPLOY_SERVER_NAME' or set deploy_vps_ip in coolify.json." >&2
+      exit 1
+    fi
     echo "  CREATED $APP_NAME $APP_UUID"
   else
     echo "  EXISTS  $APP_NAME $APP_UUID"
@@ -203,11 +261,11 @@ print(json.dumps({
   echo "    PATCHED settings (fqdn=$DOMAIN, auto_deploy=off, volume_mount=$VOLUME_NAME, health_check=/api/health)"
 
   # 2c. Create Docker volume on the server (idempotent — exits 0 if exists)
-  ssh "$SSH_HOST" "docker volume create $VOLUME_NAME >/dev/null" || {
-    echo "ERROR: ssh $SSH_HOST docker volume create failed. Verify ~/.ssh/config has alias '$SSH_HOST'." >&2
+  ssh "$DEPLOY_SSH_HOST" "docker volume create $VOLUME_NAME >/dev/null" || {
+    echo "ERROR: ssh $DEPLOY_SSH_HOST docker volume create failed. Verify ~/.ssh/config has alias '$DEPLOY_SSH_HOST'." >&2
     exit 1
   }
-  echo "    VOLUME ready: $VOLUME_NAME on $SSH_HOST"
+  echo "    VOLUME ready: $VOLUME_NAME on $DEPLOY_SSH_HOST"
 
   # 2d. Create or rotate Doppler service token for this environment
   TOKEN_NAME="coolify-${PROJECT}-${ENV_NAME}"
@@ -260,10 +318,10 @@ PY
 
   # 2g. Upsert DNS A record for this domain (only when dns: block is configured)
   if [ "$DNS_ENABLED" = true ]; then
-    ZR=$(dns_upsert_a_record "$DOMAIN" "$VPS_IP")   # echoes zone_id|record_id
+    ZR=$(dns_upsert_a_record "$DOMAIN" "$DEPLOY_VPS_IP")   # echoes zone_id|record_id
     DNS_RECORD_IDS[$ENV_NAME]="${ZR##*|}"
-    dns_verify_a_record "$DOMAIN" "$VPS_IP"           # round-trip check — hard-fail on mismatch
-    echo "    DNS A $DOMAIN -> $VPS_IP (record_id=${ZR##*|})"
+    dns_verify_a_record "$DOMAIN" "$DEPLOY_VPS_IP"           # round-trip check — hard-fail on mismatch
+    echo "    DNS A $DOMAIN -> $DEPLOY_VPS_IP (record_id=${ZR##*|})"
   fi
 done
 
