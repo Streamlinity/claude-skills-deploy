@@ -380,6 +380,145 @@ bash test/cleanup-deployment.sh test/results/YYYYMMDDHHMMSS.json
 
 ---
 
+## Deploy to a separate VPS
+
+By default, `/setup-coolify` provisions staging and production apps on the
+Coolify host itself (the `localhost` server in Coolify's server registry).
+For most workloads this is fine: one VPS runs Coolify + your apps.
+
+Use this section when you want apps to run on a different VPS than the one
+running Coolify — for example, a beefier app VPS and a small Coolify VPS,
+or environment-isolation between Coolify infrastructure and application
+runtime.
+
+See **[docs/schema.md](./schema.md#multi-server-deployment-phase-4)** for the
+canonical field reference. To convert an EXISTING localhost-deployed app to
+a separate server, see **[docs/multi-server-migration.md](./multi-server-migration.md)** —
+Coolify has no API to move apps between servers, so the conversion requires
+re-provisioning.
+
+### Step A: Register the deployment VPS in Coolify
+
+1. Provision the second VPS (any cloud provider; bash 4+, Docker, SSH access).
+2. In the Coolify UI, navigate to **Servers → Add Server**.
+3. Fill in:
+   - **Name** — a short identifier (e.g. `my-app-vps`). This is the value
+     you will set as `deploy_server:` in `coolify.yaml`.
+   - **IP Address** — the deployment VPS public IPv4. Coolify stores this
+     and `/setup-coolify` reads it back via `GET /servers/{uuid}.ip` for
+     DNS A record provisioning.
+   - **User / Port / Private Key** — SSH credentials Coolify uses to
+     manage Docker on the remote server.
+4. Verify Coolify can reach the server (Coolify shows a green "Connected"
+   indicator on the server detail page).
+
+### Step B: Add SSH access for the skill scripts
+
+`/setup-coolify` creates a Docker volume directly on the deployment VPS
+(for the Doppler secret cache). It needs its own SSH alias separate from
+the Coolify host alias.
+
+1. Add an entry to `~/.ssh/config`:
+
+   ```
+   Host my-app-vps
+     HostName <deployment-vps-ip>
+     User root
+     IdentityFile ~/.ssh/id_ed25519
+   ```
+
+2. Verify the alias works:
+
+   ```bash
+   ssh -o BatchMode=yes my-app-vps 'echo ok'
+   ```
+
+   Expected output: `ok`.
+
+### Step C: Update ~/.claude/coolify.json
+
+Add `deploy_ssh_host` (and optionally `deploy_vps_ip`) to the existing
+server entry — the one whose alias you reference from `coolify.yaml`. Do
+NOT add a new top-level server entry; the existing entry (which points to
+the Coolify instance) gains two optional fields:
+
+```json
+{
+  "servers": {
+    "vultr-stream": {
+      "url": "https://coolify.cicd.streamlinity.com",
+      "api_key": "...",
+      "doppler_account": "streamlinity",
+      "ssh_host": "v_cicd_stream",
+      "vps_ip": "149.248.4.46",
+      "deploy_ssh_host": "my-app-vps",
+      "deploy_vps_ip": "203.0.113.42"
+    }
+  }
+}
+```
+
+- `ssh_host` and `vps_ip` still describe the **Coolify host** (used for
+  Coolify API operations and the default localhost deployment case).
+- `deploy_ssh_host` and `deploy_vps_ip` describe the **deployment VPS**
+  (used when `deploy_server:` is set in `coolify.yaml`).
+
+`deploy_vps_ip` is optional — if omitted, `/setup-coolify` resolves the
+deployment VPS IP via the Coolify API (`GET /servers/{uuid}.ip` where uuid
+is the registered server's UUID), then falls back to SSH + `ifconfig.me`
+on `deploy_ssh_host`.
+
+### Step D: Set deploy_server in coolify.yaml
+
+In the target repo's `coolify.yaml`, add or uncomment:
+
+```yaml
+server: vultr-stream        # unchanged — selects the Coolify instance
+deploy_server: my-app-vps   # NEW — name of the Coolify-registered server (from Step A)
+doppler_project: myapp
+```
+
+The name must match exactly the value you entered in the Coolify UI at
+Step A (Coolify name lookup is case-sensitive).
+
+### Step E: Validate and provision
+
+Run the standard flow:
+
+```bash
+/setup-coolify validate    # confirms deploy_server exists in Coolify (MSRV-03)
+/setup-coolify             # creates apps on my-app-vps, not localhost
+```
+
+Expected output from `provision.sh` includes lines like:
+
+```
+deploy_server=my-app-vps deploy_server_uuid=<uuid> dest_uuid=<uuid> (source: coolify.yaml deploy_server)
+deploy_ssh_host=my-app-vps
+deploy_vps_ip=203.0.113.42 (source: coolify.json deploy_vps_ip)
+```
+
+`provision.sh` post-create verification reads back `GET /applications/{uuid}.destination.server`
+and hard-fails with a clear error if the app landed on the wrong server —
+no silent misrouting.
+
+### Step F: Verify the deployment
+
+1. **Coolify UI** — both `<project>-staging` and `<project>-production`
+   apps appear in the project, with their "Server" field set to
+   `my-app-vps` (not `localhost`).
+
+2. **DNS** — `dig +short <staging-domain>` resolves to the deployment VPS
+   public IP (`203.0.113.42` in the example), not the Coolify host IP.
+
+3. **SSH check** — `ssh my-app-vps "docker volume ls | grep doppler-cache"`
+   shows the Doppler cache volume created on the deployment VPS.
+
+4. **HTTPS** — the staging URL returns HTTP 200 from `/api/health` once
+   the app container is running.
+
+---
+
 ## Verifying success
 
 1. **Check the GitHub Actions workflow was registered:**

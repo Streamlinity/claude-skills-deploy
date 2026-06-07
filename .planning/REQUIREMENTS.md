@@ -49,14 +49,14 @@
 
 ### Multi-Server Deployment
 
-- **MSRV-01**: `coolify.yaml` supports an optional `deploy_server:` field specifying the name of a Coolify-registered server (e.g., `"my-app-vps"`) where apps are deployed. When absent, behavior is identical to today (uses "localhost" server — the Coolify host itself). No change required to existing `coolify.yaml` files.
-- **MSRV-02**: `provision.sh` creates Coolify apps on the server identified by `deploy_server` in `coolify.yaml` (falling back to the `server_name` field in `coolify.json` server entry, then `"localhost"`). If the named server is not found in Coolify, the script exits with a clear error naming the server.
-- **MSRV-03**: `validate.sh` checks that `deploy_server` (if set) exists as a registered server in Coolify before any provisioning occurs. Failure message names the missing server and lists available servers.
-- **MSRV-04**: `coolify.json` server entries support an optional `deploy_ssh_host` field: the SSH alias for the deployment VPS (used for Docker volume creation and VPS IP resolution when the deployment target differs from the Coolify host). Falls back to `ssh_host` when absent.
-- **MSRV-05**: DNS A records are provisioned using the deployment VPS IP (resolved via `deploy_ssh_host` if set, otherwise `ssh_host`). This ensures app domains resolve to the correct server when staging/production apps live on a different VPS than Coolify.
-- **MSRV-06**: All existing repos that do not set `deploy_server:` in `coolify.yaml` continue to work without any modifications (full backward compatibility).
-- **MSRV-07**: `docs/schema.md` and `docs/setup-guide.md` document `deploy_server:` and `deploy_ssh_host`, and include a "Deploy to a separate VPS" how-to section.
-- **MSRV-08**: A migration guide documents the steps for converting an existing localhost-deployed Coolify app to a separate server (re-creation required — Coolify does not support moving apps between servers; guide covers running `/setup-coolify` with the new `deploy_server:` and removing the old localhost apps manually).
+- [x] **MSRV-01**: `coolify.yaml` supports an optional `deploy_server:` field specifying the name of a Coolify-registered server (e.g., `"my-app-vps"`) where apps are deployed. When absent, behavior is identical to today (uses "localhost" server — the Coolify host itself). No change required to existing `coolify.yaml` files.
+- [x] **MSRV-02**: `provision.sh` creates Coolify apps on the server identified by `deploy_server` in `coolify.yaml` (falling back to the `server_name` field in `coolify.json` server entry, then `"localhost"`). If the named server is not found in Coolify, the script exits with a clear error naming the server.
+- [x] **MSRV-03**: `validate.sh` checks that `deploy_server` (if set) exists as a registered server in Coolify before any provisioning occurs. Failure message names the missing server and lists available servers.
+- [x] **MSRV-04**: `coolify.json` server entries support an optional `deploy_ssh_host` field: the SSH alias for the deployment VPS (used for Docker volume creation and VPS IP resolution when the deployment target differs from the Coolify host). Falls back to `ssh_host` when absent.
+- [x] **MSRV-05**: DNS A records are provisioned using the deployment VPS IP (resolved via `deploy_ssh_host` if set, otherwise `ssh_host`). This ensures app domains resolve to the correct server when staging/production apps live on a different VPS than Coolify.
+- [x] **MSRV-06**: All existing repos that do not set `deploy_server:` in `coolify.yaml` continue to work without any modifications (full backward compatibility).
+- [x] **MSRV-07**: `docs/schema.md` and `docs/setup-guide.md` document `deploy_server:` and `deploy_ssh_host`, and include a "Deploy to a separate VPS" how-to section.
+- [x] **MSRV-08**: A migration guide documents the steps for converting an existing localhost-deployed Coolify app to a separate server (re-creation required — Coolify does not support moving apps between servers; guide covers running `/setup-coolify` with the new `deploy_server:` and removing the old localhost apps manually).
 
 ## Out of Scope
 
@@ -84,14 +84,14 @@
 | VALID-02 | Phase 2 | Complete |
 | CLEAN-01 | Phase 3 | Complete |
 | CLEAN-02 | Phase 3 | Complete |
-| MSRV-01 | Phase 4 | Not started |
-| MSRV-02 | Phase 4 | Not started |
-| MSRV-03 | Phase 4 | Not started |
-| MSRV-04 | Phase 4 | Not started |
-| MSRV-05 | Phase 4 | Not started |
-| MSRV-06 | Phase 4 | Not started |
-| MSRV-07 | Phase 4 | Not started |
-| MSRV-08 | Phase 4 | Not started |
+| MSRV-01 | Phase 4 | Complete |
+| MSRV-02 | Phase 4 | Complete |
+| MSRV-03 | Phase 4 | Complete |
+| MSRV-04 | Phase 4 | Complete |
+| MSRV-05 | Phase 4 | Complete |
+| MSRV-06 | Phase 4 | Complete |
+| MSRV-07 | Phase 4 | Complete |
+| MSRV-08 | Phase 4 | Complete |
 
 **Coverage:**
 - v1 requirements: 12 total, mapped: 12 ✓
