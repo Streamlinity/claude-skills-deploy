@@ -14,6 +14,7 @@ deployment on their Coolify server.
 - [x] **Phase 2: Test Framework** - Build the E2E test runner, static workflow validator, and wire them together so a passing run proves the skill is correct
 - [x] **Phase 02.1: new-user-onboarding (URGENT)** - Remove maintainer-specific defaults and stale docs that silently fail for new users (completed 2026-05-22)
 - [ ] **Phase 3: Cleanup Script** - Add the separate teardown script that lets an operator delete the hello-world deployment after inspecting it
+- [ ] **Phase 4: Multi-Server Deployment** - Deploy apps to a separate VPS registered as a Coolify server; backward-compatible with existing localhost deployments
 
 ## Phase Details
 
@@ -81,6 +82,23 @@ deployment on their Coolify server.
 
 **UI hint**: no
 
+### Phase 4: Multi-Server Deployment
+**Goal**: Operators can deploy apps to a separately-registered Coolify server (a VPS distinct from the Coolify host) by setting `deploy_server:` in `coolify.yaml`, while all existing repos without this field continue to work unchanged. DNS provisioning, Docker volume creation, and VPS IP resolution all target the correct server. A migration guide covers converting existing localhost-deployed apps.
+**Depends on**: Phase 3
+**Requirements**: MSRV-01, MSRV-02, MSRV-03, MSRV-04, MSRV-05, MSRV-06, MSRV-07, MSRV-08
+**Success Criteria** (what must be TRUE):
+  1. A `coolify.yaml` with `deploy_server: "my-app-vps"` causes `provision.sh` to create Coolify apps on the server named `my-app-vps`, not `localhost`
+  2. A `coolify.yaml` without `deploy_server:` provisions apps on the `localhost` server exactly as before (backward compatible)
+  3. `validate.sh` exits non-zero with a named-server error when `deploy_server:` references a server not registered in Coolify
+  4. DNS A records created by `provision.sh` resolve to the deployment VPS IP (not the Coolify host IP) when `deploy_ssh_host` is set
+  5. `docs/schema.md` documents `deploy_server:` and `deploy_ssh_host` with examples; `docs/setup-guide.md` has a "Deploy to a separate VPS" how-to section
+**Plans**: 4 plans
+- [ ] 04-01-PLAN.md — provision.sh + validate.sh + lib-coolify-api.sh: DEPLOY_SERVER_NAME/DEPLOY_SSH_HOST/DEPLOY_VPS_IP resolution chains, deploy_server existence check, improved destination-uuid lookup (MSRV-01..06)
+- [ ] 04-02-PLAN.md — init.sh + coolify.yaml.tmpl: optional deploy_server prompt with commented-out template default (MSRV-01)
+- [ ] 04-03-PLAN.md — docs/schema.md + docs/setup-guide.md + new docs/multi-server-migration.md: field references, 'Deploy to a separate VPS' how-to, migration guide (MSRV-07, MSRV-08)
+- [ ] 04-04-PLAN.md — test/validate-deploy-server.sh: MSRV-03 regression test against live Coolify (autonomous: false; depends on 04-01)
+**UI hint**: no
+
 ## Progress
 
 | Phase | Plans Complete | Status | Completed |
@@ -89,3 +107,4 @@ deployment on their Coolify server.
 | 2. Test Framework | 1/2 | In Progress|  |
 | 02.1. new-user-onboarding | 4/4 | Complete    | 2026-05-22 |
 | 3. Cleanup Script | 0/1 | Not started | - |
+| 4. Multi-Server Deployment | 0/4 | Not started | - |
