@@ -10,10 +10,10 @@ deployment on their Coolify server.
 
 ## Phases
 
-- [ ] **Phase 1: Bug Fixes** - Patch three HIGH bugs in provision.sh and generate-workflow.sh that would cause the E2E test to fail for the wrong reasons
+- [x] **Phase 1: Bug Fixes** - Patch three HIGH bugs in provision.sh and generate-workflow.sh that would cause the E2E test to fail for the wrong reasons
 - [x] **Phase 2: Test Framework** - Build the E2E test runner, static workflow validator, and wire them together so a passing run proves the skill is correct
 - [x] **Phase 02.1: new-user-onboarding (URGENT)** - Remove maintainer-specific defaults and stale docs that silently fail for new users (completed 2026-05-22)
-- [ ] **Phase 3: Cleanup Script** - Add the separate teardown script that lets an operator delete the hello-world deployment after inspecting it
+- [x] **Phase 3: Cleanup Script** - Add the separate teardown script that lets an operator delete the hello-world deployment after inspecting it
 - [ ] **Phase 4: Multi-Server Deployment** - Deploy apps to a separate VPS registered as a Coolify server; backward-compatible with existing localhost deployments
 
 ## Phase Details
@@ -93,8 +93,8 @@ deployment on their Coolify server.
   4. DNS A records created by `provision.sh` resolve to the deployment VPS IP (not the Coolify host IP) when `deploy_ssh_host` is set
   5. `docs/schema.md` documents `deploy_server:` and `deploy_ssh_host` with examples; `docs/setup-guide.md` has a "Deploy to a separate VPS" how-to section
 **Plans**: 4 plans
-- [ ] 04-01-PLAN.md — provision.sh + validate.sh + lib-coolify-api.sh: DEPLOY_SERVER_NAME/DEPLOY_SSH_HOST/DEPLOY_VPS_IP resolution chains, deploy_server existence check, improved destination-uuid lookup (MSRV-01..06)
-- [ ] 04-02-PLAN.md — init.sh + coolify.yaml.tmpl: optional deploy_server prompt with commented-out template default (MSRV-01)
+- [x] 04-01-PLAN.md — provision.sh + validate.sh + lib-coolify-api.sh: DEPLOY_SERVER_NAME/DEPLOY_SSH_HOST/DEPLOY_VPS_IP resolution chains, deploy_server existence check, improved destination-uuid lookup (MSRV-01..06)
+- [x] 04-02-PLAN.md — init.sh + coolify.yaml.tmpl: optional deploy_server prompt with commented-out template default (MSRV-01)
 - [ ] 04-03-PLAN.md — docs/schema.md + docs/setup-guide.md + new docs/multi-server-migration.md: field references, 'Deploy to a separate VPS' how-to, migration guide (MSRV-07, MSRV-08)
 - [ ] 04-04-PLAN.md — test/validate-deploy-server.sh: MSRV-03 regression test against live Coolify (autonomous: false; depends on 04-01)
 **UI hint**: no
@@ -103,8 +103,8 @@ deployment on their Coolify server.
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Bug Fixes | 2/3 | In Progress|  |
-| 2. Test Framework | 1/2 | In Progress|  |
+| 1. Bug Fixes | 3/3 | Complete | 2026-05-22 |
+| 2. Test Framework | 2/2 | Complete | 2026-05-22 |
 | 02.1. new-user-onboarding | 4/4 | Complete    | 2026-05-22 |
-| 3. Cleanup Script | 0/1 | Not started | - |
-| 4. Multi-Server Deployment | 0/4 | Not started | - |
+| 3. Cleanup Script | 1/1 | Complete | 2026-05-22 |
+| 4. Multi-Server Deployment | 2/4 | In Progress|  |
