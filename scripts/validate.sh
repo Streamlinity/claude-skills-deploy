@@ -101,6 +101,33 @@ print(', '.join(s.get('name','') for s in srvs if s.get('name')))
   fi
 fi
 
+# MSRV-07: deploy_server and deploy_ssh_host must be specified together or skipped together.
+DEPLOY_SSH_HOST_CHECK=$(python3 -c "
+import json
+d=json.load(open('$HOME/.claude/coolify.json'))
+print(d.get('servers',{}).get('$SERVER',{}).get('deploy_ssh_host',''))
+")
+if [ -n "${DEPLOY_SERVER:-}" ] && [ -z "$DEPLOY_SSH_HOST_CHECK" ]; then
+  fail "INVALID:coolify.json:servers.$SERVER.deploy_ssh_host (missing — required when deploy_server is set)"
+  echo "" >&2
+  echo "deploy_server '$DEPLOY_SERVER' deploys apps to a separate server." >&2
+  echo "provision.sh needs deploy_ssh_host for Docker volume creation and DNS IP resolution." >&2
+  echo "Add it to ~/.claude/coolify.json servers.$SERVER. Example:" >&2
+  echo "  \"$SERVER\": { ..., \"deploy_ssh_host\": \"my-app-vps\" }" >&2
+  exit 1
+fi
+if [ -z "${DEPLOY_SERVER:-}" ] && [ -n "$DEPLOY_SSH_HOST_CHECK" ]; then
+  fail "INVALID:coolify.json:servers.$SERVER.deploy_ssh_host (present but deploy_server is absent in coolify.yaml)"
+  echo "" >&2
+  echo "deploy_ssh_host is only used when deploy_server is set. Either:" >&2
+  echo "  • Set deploy_server in coolify.yaml to deploy to a separate server, OR" >&2
+  echo "  • Remove deploy_ssh_host from ~/.claude/coolify.json servers.$SERVER." >&2
+  exit 1
+fi
+if [ -n "${DEPLOY_SERVER:-}" ] && [ -n "$DEPLOY_SSH_HOST_CHECK" ]; then
+  echo "validate: deploy_server + deploy_ssh_host coupling OK"
+fi
+
 # Verify every env_vars key exists in BOTH staging and production with non-placeholder values
 for ENV in "$STAGING_DOPPLER" "$PROD_DOPPLER"; do
   for KEY in $ENV_VARS; do
