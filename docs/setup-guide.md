@@ -104,22 +104,51 @@ is sufficient for most workloads. Ubuntu 22.04 LTS is the tested base image.
    ```bash
    ssh root@<ip>
    ```
+   > **Key permissions:** If you copied an SSH key from another machine (WSL, Windows,
+   > another Linux user), run `chmod 0600 ~/.ssh/<keyname>` first. SSH silently ignores
+   > keys with permissions wider than `0600`.
 3. Install Coolify:
    ```bash
    curl -fsSL https://cdn.coollabs.io/coolify/install.sh | sudo bash
    ```
    This installs Docker, Coolify, and sets up systemd. The install takes 2–5 minutes.
+
+   > **If step 1/9 hangs for more than 10 minutes:** Ubuntu's `needrestart` tool is
+   > prompting interactively and blocking apt. Fix it, then re-run the install script
+   > (it is idempotent):
+   > ```bash
+   > echo "\$nrconf{restart} = 'a';" | tee /etc/needrestart/conf.d/autorestart.conf
+   > curl -fsSL https://cdn.coollabs.io/coolify/install.sh | sudo bash
+   > ```
+
 4. Once the install completes, open `http://<ip>:8000` in a browser. Create your admin
    account on the first-run wizard.
-5. Enable HTTPS: navigate to Coolify **Settings → Configuration → HTTPS** and follow the
-   prompts to issue a Let's Encrypt certificate for your Coolify domain. You will need a
-   DNS A record pointing to the VPS IP first (e.g., `coolify.cicd.example.com → <ip>`).
+5. Set the Coolify URL: navigate to **Settings → Configuration → General** and set the
+   **URL** field to `https://coolify.<your-domain>`. This tells Coolify its own address
+   but does not automatically issue a certificate — HTTPS for the dashboard requires
+   Coolify's Traefik proxy to be running (see step 6 below).
+
+**Post-install: start the Traefik proxy**
+
+Coolify's Traefik proxy handles HTTPS for all deployed apps. It does not start
+automatically after install. Start it before provisioning any apps:
+
+```bash
+# On the VPS:
+cd /data/coolify/proxy && docker compose up -d
+```
+
+Or in the Coolify UI: **Servers → localhost → Proxy → Start Proxy**.
+
+> **Port conflict:** If another service (e.g., a standalone Caddy or nginx) already
+> owns ports 80/443, Traefik will fail to start. Make that service internal and route
+> it through Traefik. See **[docs/troubleshooting.md](./troubleshooting.md#bind-for-00000080-failed-port-is-already-allocated-when-starting-traefik)**.
 
 **Post-install: clear `allowed_ips`**
 
 By default Coolify may restrict API access to specific IPs. Before API calls from
 GitHub Actions (or your local machine) will work, open Coolify **Settings → Security**
-and clear `allowed_ips` (set to `*` or your known IP ranges). Leaving this at the
+and set `allowed_ips` to `0.0.0.0` (or leave it empty). Leaving this at the
 default value causes every API call to return HTTP 403 even with a valid token.
 
 ---
@@ -273,6 +302,16 @@ The generated `.github/workflows/deploy.yml` requires two GitHub Actions secrets
    gh api repos/{owner}/{repo} --method PATCH --field default_workflow_permissions=write
    ```
 
+4. **Make the GHCR package public (org repos only).** After the first CI run pushes a Docker
+   image for a GitHub org, the package is **private by default**. The Coolify VPS cannot pull
+   private packages without authentication. Make it public once:
+   - Go to `https://github.com/orgs/<org>/packages/container/<package-name>/settings`
+   - Under **Danger Zone**, change visibility to **Public**.
+
+   This only needs to be done once — future pushes to the same package name inherit the
+   public visibility. (For personal-account repos, packages default to the repo's visibility
+   and usually don't require this step.)
+
 ---
 
 ## Step 6b: Store GHCR_TOKEN for local E2E testing
@@ -339,6 +378,17 @@ You will be prompted for:
 - Build context (default `.`; set to `./skillmap` only for monorepos with a nested app)
 - Dockerfile path (default `./Dockerfile`)
 - Env var keys (space-separated list of all keys your app needs)
+
+**After `init.sh` completes, open `coolify.yaml` and verify two fields:**
+
+```yaml
+port: 8000              # the port your app listens on (default: 3000)
+health_check_path: /health   # your app's health endpoint (default: /api/health)
+```
+
+Edit these to match your app before running `/setup-coolify`. Getting them wrong causes either a Bad Gateway (wrong port → Traefik routes to the wrong place) or an unhealthy container (wrong health path → Coolify restart loops).
+
+> **Multi-stage Dockerfile:** If your Dockerfile has multiple stages (e.g., `production` and `dev`), check that `.github/workflows/deploy.yml` includes `target: production` in the build step. Without it, CI builds the last stage, which is often a dev image that expects source mounted as a volume.
 
 After the bootstrapper completes, validate and provision:
 ```bash

@@ -83,6 +83,12 @@ See **[docs/schema.md](./docs/schema.md)** for full `coolify.yaml` and `coolify.
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
+| `WARNING: UNPROTECTED PRIVATE KEY FILE!` | SSH key permissions too open (common after copying from another machine) | `chmod 0600 ~/.ssh/<keyname>` |
+| Coolify install hangs at step 1/9 for >10 min | `needrestart` prompting interactively and blocking apt | `echo "\$nrconf{restart} = 'a';" \| tee /etc/needrestart/conf.d/autorestart.conf` then re-run install |
+| `permission denied while trying to connect to the Docker API` | Docker group not active in current shell after `usermod` | Run `newgrp docker` or open a new terminal |
+| Apps deploy as `running:healthy` but HTTPS URLs time out | Coolify's Traefik proxy (`coolify-proxy`) is not running | `cd /data/coolify/proxy && docker compose up -d` (on the VPS) |
+| `Bind for 0.0.0.0:80 failed: port is already allocated` | Another container owns ports 80/443; Traefik can't start | Make the conflicting service internal (no port bindings), route it through Traefik — see [docs/troubleshooting.md](docs/troubleshooting.md) |
+| API calls return 401 despite correct token in coolify.json | Coolify tokens contain `\|`; old parsing truncated the key | Pull latest skill or update `coolify_load_server()` in `scripts/lib-coolify-api.sh` to use per-field python3 reads |
 | `ERROR: 'ssh_host' field is missing` | `~/.claude/coolify.json` server entry has no `ssh_host` | Add `"ssh_host": "<alias>"` to the server entry. Must match a host alias in `~/.ssh/config`. |
 | `MISSING:<KEY>:staging (key absent in Doppler)` | env_vars key in coolify.yaml not yet in the Doppler `staging` config | `doppler secrets set --project <p> --config staging <KEY>=<value>` |
 | `doppler: unknown flag --account` | Old code using removed CLI flag | This skill does not use `--account`. If you wrote custom scripts, remove that flag (v3.76.0+). |
@@ -92,6 +98,14 @@ See **[docs/schema.md](./docs/schema.md)** for full `coolify.yaml` and `coolify.
 | `MISSING:DNS_CREDENTIAL:CLOUDFLARE_API_TOKEN` | DNS provider is cloudflare but the token is not present in the configured source | `doppler secrets set CLOUDFLARE_API_TOKEN --project <p> --config stg` (or add `cloudflare_api_token` to `coolify.json` if using `credential_source: coolify_json`) |
 | `ERROR: fqdn '...' is not under configured DNS zone '...'` | `dns.zone_name` is not a suffix of the staging or production domain | Check `dns.zone_name` in `coolify.yaml` — it must be a suffix of both domains (e.g. `example.com` covers `app.example.com` and `app-staging.example.com`) |
 | Staging smoke test times out in GitHub Actions | Coolify deploy took longer than 6 minutes | Check Coolify UI for deploy logs. Likely cause: image pull from GHCR is slow or app crashed at start. |
+| Smoke test fails with TLS error on very first deploy | Let's Encrypt cert not yet issued when smoke test runs | Add `-k` to `curl` in the smoke test step — tests availability, not cert validity |
+| Container pull fails — `unauthorized` on VPS after CI push succeeds | GHCR org packages are private by default; VPS has no pull credentials | Make the package public at `github.com/orgs/<org>/packages/container/<name>/settings` |
+| `502 Bad Gateway` despite container showing `running:healthy` | Traefik labels have wrong `loadbalancer.server.port` (default 3000; your app uses a different port) | Add `port: <your-port>` to `coolify.yaml`, re-run `/setup-coolify`, trigger a new deploy |
+| Container marked `unhealthy` immediately after deploy | Default health check port (3000) or path (`/api/health`) doesn't match your app | Add `port:` and `health_check_path:` to `coolify.yaml`, re-run `/setup-coolify` |
+| Dev image deployed in CI instead of production image | Multi-stage Dockerfile without `target:` in build step builds the last stage | Add `target: production` to `docker/build-push-action` in `.github/workflows/deploy.yml` |
+| DNS records added but main domain breaks / other team's records take effect, yours don't | Records added to wrong Cloudflare zone (yours vs. collaborator's); registrar nameservers point to theirs | `dig +short NS <domain>` to confirm active zone; add records only to the zone whose nameservers are in the registrar |
+
+For more detail on any of these, see **[docs/troubleshooting.md](docs/troubleshooting.md)**.
 
 ---
 

@@ -51,6 +51,10 @@ docker buildx version      # buildx for linux/amd64 cross-build (if on Apple Sil
 ssh -o BatchMode=yes <ssh-alias> 'echo ok'  # SSH alias resolves
 ```
 
+> **Docker group:** After `sudo usermod -aG docker $USER`, the group only takes effect
+> in new login sessions. Run `newgrp docker` in your current shell before running the
+> test, or open a new terminal.
+
 Python 3 with PyYAML is also required (used by `provision.sh` and `validate.sh`):
 
 ```bash

@@ -38,6 +38,8 @@ print(f\"STAGING_DOPPLER='{d.get('environments',{}).get('staging',{}).get('doppl
 print(f\"PROD_DOMAIN='{d.get('environments',{}).get('production',{}).get('domain','')}'\")
 print(f\"PROD_DOPPLER='{d.get('environments',{}).get('production',{}).get('doppler_environment','')}'\")
 print(f\"ENV_VARS='{' '.join(d.get('env_vars',[]))}'\")
+print(f\"APP_PORT='{d.get('port',3000)}'\")
+print(f\"HEALTH_CHECK_PATH='{d.get('health_check_path','/api/health')}'\")
 ")"
 
 coolify_load_server "$SERVER_ALIAS"
@@ -211,7 +213,7 @@ d = {
   'name': '$APP_NAME',
   'docker_registry_image_name': '$REGISTRY_IMAGE_NAME',
   'docker_registry_image_tag': 'main',
-  'ports_exposes': '3000',
+  'ports_exposes': '$APP_PORT',
   'domains': 'https://$DOMAIN',
   'is_auto_deploy_enabled': False,
   'instant_deploy': False
@@ -257,14 +259,14 @@ print(json.dumps({
   'custom_docker_run_options': '$EXPECTED_MOUNT',
   'docker_registry_image_name': '$REGISTRY_IMAGE_NAME',
   'health_check_enabled': True,
-  'health_check_path': '/api/health',
-  'health_check_port': 3000,
+  'health_check_path': '$HEALTH_CHECK_PATH',
+  'health_check_port': int('$APP_PORT'),
   'health_check_interval': 30,
   'health_check_timeout': 5,
   'health_check_retries': 3
 }))")
   coolify_curl PATCH "/applications/$APP_UUID" "$PATCH_BODY" >/dev/null
-  echo "    PATCHED settings (fqdn=$DOMAIN, auto_deploy=off, volume_mount=$VOLUME_NAME, health_check=/api/health)"
+  echo "    PATCHED settings (fqdn=$DOMAIN, auto_deploy=off, volume_mount=$VOLUME_NAME, health_check=$HEALTH_CHECK_PATH:$APP_PORT)"
 
   # 2c. Create Docker volume on the server (idempotent — exits 0 if exists)
   ssh "$DEPLOY_SSH_HOST" "docker volume create $VOLUME_NAME >/dev/null" || {
