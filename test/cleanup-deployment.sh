@@ -17,6 +17,7 @@ set -euo pipefail
 SKILL_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 source "$SKILL_DIR/scripts/lib-coolify-api.sh"
 source "$SKILL_DIR/scripts/lib-doppler-api.sh"
+source "$SKILL_DIR/scripts/lib-dns-api.sh"
 
 # ── Argument parsing ───────────────────────────────────────────────────────────
 
@@ -62,6 +63,29 @@ print(f"COOLIFY_PROJECT_UUID='{project_uuid}'")
 print(f"STAGING_APP_UUID='{d['staging_app_uuid']}'")
 print(f"PRODUCTION_APP_UUID='{d['production_app_uuid']}'")
 print(f"DOPPLER_PROJECT='{d['doppler_project']}'")
+
+# DNS fields (optional — absent in pre-DNS reports; default to empty for backward compat)
+dns_provider        = d.get('dns_provider', '')
+dns_zone_id         = d.get('dns_zone_id', '')
+dns_zone_name       = d.get('dns_zone_name', '')
+dns_cred_source     = d.get('dns_credential_source', 'doppler')
+dns_cred_key        = d.get('dns_credential_key', '')
+dns_records         = d.get('dns_records', [])
+
+print(f"DNS_PROVIDER_REPORT='{dns_provider}'")
+print(f"DNS_ZONE_ID_REPORT='{dns_zone_id}'")
+print(f"DNS_ZONE_NAME_REPORT='{dns_zone_name}'")
+print(f"DNS_CREDENTIAL_SOURCE_REPORT='{dns_cred_source}'")
+print(f"DNS_CREDENTIAL_KEY_REPORT='{dns_cred_key}'")
+
+# Build a tab-separated string: <name>\t<record_id> per record
+tsv_lines = []
+for rec in dns_records:
+    name = rec.get('name', '')
+    rec_id = rec.get('record_id', '')
+    if name and rec_id:
+        tsv_lines.append(f"{name}\t{rec_id}")
+print(f'DNS_RECORDS_TSV="{chr(30).join(tsv_lines)}"')
 PY
 ) || { echo "$_fields" >&2; exit 1; }
 eval "$_fields"
@@ -80,6 +104,30 @@ echo "  SSH host:        $SSH_HOST"
 echo ""
 
 # ── Deletion sequence ──────────────────────────────────────────────────────────
+
+echo "=== Deleting DNS records ==="
+if [ -z "${DNS_PROVIDER_REPORT:-}" ] || [ -z "${DNS_RECORDS_TSV:-}" ]; then
+  echo "  (no DNS records in report — skipped)"
+else
+  # Load DNS credentials from report metadata + coolify.json/Doppler
+  export DNS_PROVIDER="${DNS_PROVIDER_REPORT}"
+  export DNS_ZONE_NAME="${DNS_ZONE_NAME_REPORT}"
+  export DNS_CREDENTIAL_SOURCE="${DNS_CREDENTIAL_SOURCE_REPORT:-doppler}"
+  export DNS_CREDENTIAL_KEY="${DNS_CREDENTIAL_KEY_REPORT}"
+  export DOPPLER_PROJECT DOPPLER_ENV="stg"
+  dns_load_credentials_from_env
+
+  # DNS_RECORDS_TSV uses ASCII record separator (0x1E) between records, tab within
+  IFS=$'\x1e' read -ra _dns_entries <<< "${DNS_RECORDS_TSV}"
+  for _entry in "${_dns_entries[@]}"; do
+    IFS=$'\t' read -r _dns_name _dns_rec_id <<< "$_entry"
+    [ -z "$_dns_rec_id" ] && continue
+    dns_delete_record "${DNS_ZONE_ID_REPORT}" "$_dns_rec_id" \
+      && echo "  ✓ deleted DNS record $_dns_name ($_dns_rec_id)" \
+      || echo "  ⚠ could not delete DNS record $_dns_name ($_dns_rec_id)"
+  done
+fi
+echo ""
 
 echo "=== Deleting Coolify apps ==="
 coolify_curl DELETE "/applications/$STAGING_APP_UUID" >/dev/null 2>&1 \

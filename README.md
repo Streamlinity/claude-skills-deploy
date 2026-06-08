@@ -14,6 +14,7 @@ Coolify + Doppler deployment skills for Claude Code. One command bootstraps any 
 - Doppler integration: all secrets injected at container start via `DOPPLER_TOKEN`
 - Auto-generated `.github/workflows/deploy.yml` implementing GHCR same-image promotion (build once, deploy staging, smoke test, then deploy SAME image to production)
 - `init.sh` bootstrapper: takes a new repo from zero to `coolify.yaml` + `.github/workflows/deploy.yml` in under a minute (one command, two files written)
+- Automated DNS A record provisioning (Cloudflare) — no more manual A records before HTTPS. When `dns: provider: cloudflare` is set, `/setup-coolify` creates staging + production A records pointing at your VPS automatically.
 
 ---
 
@@ -36,7 +37,7 @@ Choose the pathway that matches your goal to avoid reading in circles:
 Clone the repository directly into your personal Claude skills directory:
 
 ```bash
-git clone https://github.com/anatesan-stream/claude-skills-deploy.git ~/.claude/skills/setup-coolify
+git clone https://github.com/Streamlinity/claude-skills-deploy.git ~/.claude/skills/setup-coolify
 ```
 
 Open any Claude Code session — `/setup-coolify` is immediately available. No build or install step is required.
@@ -94,6 +95,8 @@ See **[docs/schema.md](./docs/schema.md)** for full `coolify.yaml` and `coolify.
 | `custom_docker_run_options did not round-trip` | Coolify did not persist the volume mount PATCH | Verify your Coolify version. Re-run `/setup-coolify` (idempotent). |
 | `/setup-coolify` not found in Claude Code | Wrong install depth or symlink missing | Verify `~/.claude/skills/setup-coolify/SKILL.md` exists at exactly that path. The repo root must BE the skill directory. |
 | `ModuleNotFoundError: No module named 'yaml'` | PyYAML not installed | `pip3 install pyyaml` |
+| `MISSING:DNS_CREDENTIAL:CLOUDFLARE_API_TOKEN` | DNS provider is cloudflare but the token is not present in the configured source | `doppler secrets set CLOUDFLARE_API_TOKEN --project <p> --config stg` (or add `cloudflare_api_token` to `coolify.json` if using `credential_source: coolify_json`) |
+| `ERROR: fqdn '...' is not under configured DNS zone '...'` | `dns.zone_name` is not a suffix of the staging or production domain | Check `dns.zone_name` in `coolify.yaml` — it must be a suffix of both domains (e.g. `example.com` covers `app.example.com` and `app-staging.example.com`) |
 | Staging smoke test times out in GitHub Actions | Coolify deploy took longer than 6 minutes | Check Coolify UI for deploy logs. Likely cause: image pull from GHCR is slow or app crashed at start. |
 | Smoke test fails with TLS error on very first deploy | Let's Encrypt cert not yet issued when smoke test runs | Add `-k` to `curl` in the smoke test step — tests availability, not cert validity |
 | Container pull fails — `unauthorized` on VPS after CI push succeeds | GHCR org packages are private by default; VPS has no pull credentials | Make the package public at `github.com/orgs/<org>/packages/container/<name>/settings` |

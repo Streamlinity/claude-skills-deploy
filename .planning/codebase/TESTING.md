@@ -112,7 +112,7 @@ The E2E test in `test/e2e.sh` covers the full provision-deploy-verify cycle in 9
 - `nginx.conf` — serves `GET /api/health → 200 "ok\n"` and static `index.html`
 - `index.html` — contains the string `claude-skills-deploy-e2e-ok` (body-check anchor for smoke test)
 
-**Fixture image location:** `ghcr.io/anatesan-stream/claude-skills-deploy/hello-world:latest`
+**Fixture image location:** `ghcr.io/Streamlinity/claude-skills-deploy/hello-world:latest`
 
 **Rebuilding the fixture:**
 ```bash

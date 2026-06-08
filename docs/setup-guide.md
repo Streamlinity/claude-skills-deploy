@@ -21,34 +21,63 @@ these values with your own throughout.
 
 ## DNS setup
 
-All DNS records must exist before you enable HTTPS on Coolify (Step 1) or deploy any
-application. Provision your VPS first (Step 1, items 1–3), note its public IP, then
-create the records below before continuing.
+Provision your VPS first (Step 1, items 1–3) to get the public IP. Then create DNS
+records using one of the two options below. The Coolify dashboard record
+(`coolify.<your-domain>`) must always be created manually (it predates the skill).
+App A records (staging + production) can be automated via Cloudflare.
 
-### Records to create
+### Option A: Automated DNS via Cloudflare (recommended)
+
+Skip the manual per-app records below. Instead:
+
+1. Create a Cloudflare API token at `https://dash.cloudflare.com/profile/api-tokens`
+   with **Zone: DNS: Edit** permission scoped to your target zone. Copy the token.
+
+2. Store it in Doppler (staging config — DNS credentials are shared across environments):
+   ```bash
+   doppler secrets set CLOUDFLARE_API_TOKEN --project <your-project> --config stg
+   ```
+   Or store it in `~/.claude/coolify.json` if you prefer `credential_source: coolify_json`
+   (see [docs/schema.md](./schema.md) for the `dns:` block schema).
+
+3. When running `bash init/init.sh`, answer `cloudflare` to the DNS provider prompt.
+   The generated `coolify.yaml` will contain a `dns:` block. `/setup-coolify` then
+   creates A records for staging and production automatically after Coolify apps are
+   provisioned.
+
+**Still required manually** (predates the skill):
+
+| Purpose | Type | Name | Value |
+|---------|------|------|-------|
+| Coolify dashboard | A | `coolify.<your-domain>` | `<vps-ip>` |
+
+> **Note:** If your staging/production domains use a wildcard A record at the DNS
+> provider, automated DNS provisioning is still safe — the skill's upsert is idempotent.
+
+### Option B: Manual DNS records
+
+If you are not using Cloudflare, or prefer manual control, create these records before
+running `/setup-coolify`:
 
 | Purpose | Type | Name | Value | Notes |
 |---------|------|------|-------|-------|
-| Coolify dashboard | A | `coolify.<your-domain>` | `<vps-ip>` | Used by Let's Encrypt and for browser access to the Coolify UI |
-| Deployed app — staging | A | `*.<base-domain>` | `<vps-ip>` | Wildcard covers all `<app>-staging.<base-domain>` subdomains that Coolify creates |
-| Deployed app — production | A | `<app>.<your-domain>` | `<vps-ip>` | One record per production app; add these as you provision apps |
-| E2E test subdomains | — | (covered by wildcard) | — | The `csd-e2e-*-staging.<base-domain>` throwaway domains used by `test/e2e.sh` resolve automatically if the wildcard is in place |
+| Coolify dashboard | A | `coolify.<your-domain>` | `<vps-ip>` | Required for HTTPS on Coolify UI |
+| Deployed app — staging | A | `*.<base-domain>` | `<vps-ip>` | Wildcard covers all `<app>-staging.<base-domain>` subdomains |
+| Deployed app — production | A | `<app>.<your-domain>` | `<vps-ip>` | One record per production app |
+| E2E test subdomains | — | (covered by wildcard or automated DNS) | — | `csd-hello-test-*-staging.<base-domain>` — resolved by wildcard A record, or created automatically per-run when `dns_default` is set in `coolify.json` |
 
-### Reference implementation
-
-For `streamlinity.com` on Vultr IP `149.248.4.46`:
+**Reference implementation** for `streamlinity.com` on Vultr IP `149.248.4.46`:
 
 ```
 coolify.cicd.streamlinity.com   A   149.248.4.46   # Coolify dashboard + API
-*.cicd.streamlinity.com         A   149.248.4.46   # wildcard for all deployed app subdomains
-skillmap.cicd.streamlinity.com  A   149.248.4.46   # production app (explicit, or covered by wildcard)
+*.cicd.streamlinity.com         A   149.248.4.46   # wildcard for all app subdomains
+skillmap.cicd.streamlinity.com  A   149.248.4.46   # production app (or covered by wildcard)
 ```
 
 > **Wildcard vs. explicit records:** A wildcard (`*.<base-domain>`) covers staging,
 > E2E test throwaway subdomains, and any new apps automatically. Most DNS providers
-> support wildcard A records. If yours does not, you will need to add an explicit A record
-> for each app subdomain (`<app>-staging.<base-domain>`, `<app>-production.<base-domain>`)
-> before Coolify can issue a TLS certificate for it.
+> support wildcard A records. If yours does not, add explicit A records for each
+> `<app>-staging.<base-domain>` and `<app>-production.<base-domain>`.
 
 ### DNS propagation
 
@@ -218,6 +247,7 @@ This prompts you for the server alias, URL, API key, Doppler account, and SSH ho
 **Option B: Manual Setup**
 Create the file at `~/.claude/coolify.json` using this format (see **[docs/schema.md](./schema.md#coolifyjson--machine-local-credentials)** for the canonical field reference and detailed description of each property):
 
+Concrete example for the reference implementation (with optional DNS fields):
 ```json
 {
   "servers": {
@@ -225,11 +255,20 @@ Create the file at `~/.claude/coolify.json` using this format (see **[docs/schem
       "url": "https://coolify.cicd.streamlinity.com",
       "api_key": "xOIN...",
       "doppler_account": "streamlinity",
-      "ssh_host": "v_cicd_stream"
+      "ssh_host": "v_cicd_stream",
+      "cloudflare_api_token": "cfut_...",
+      "dns_default": {
+        "provider": "cloudflare",
+        "zone_name": "streamlinity.com",
+        "credential_source": "coolify_json",
+        "credential_key": "cloudflare_api_token"
+      }
     }
   }
 }
 ```
+
+The `cloudflare_api_token` and `dns_default` fields are optional. Add them if you want automated DNS provisioning. `dns_default` is also read by `test/e2e.sh` to inject a `dns:` block into E2E test runs, so DNS record creation and cleanup are exercised automatically during testing. See [docs/schema.md](./schema.md) for the full field reference.
 
 **Secure the file immediately:**
 ```bash
@@ -332,6 +371,10 @@ You will be prompted for:
 - GHCR registry image (e.g., `ghcr.io/anatesan-stream/ai-upskilling`)
 - Staging domain (e.g., `skillmap-staging.cicd.streamlinity.com`)
 - Production domain (e.g., `skillmap.cicd.streamlinity.com`)
+- DNS provider (default `cloudflare`; enter `none` to skip automated DNS)
+- DNS zone name (e.g., `streamlinity.com` — derived from production domain by default)
+- DNS credential source (`doppler` or `coolify_json`)
+- DNS credential key (name of the Doppler secret or `coolify.json` field holding your API token)
 - Build context (default `.`; set to `./skillmap` only for monorepos with a nested app)
 - Dockerfile path (default `./Dockerfile`)
 - Env var keys (space-separated list of all keys your app needs)
@@ -384,6 +427,145 @@ E2E_SERVER=<alias> E2E_BASE_DOMAIN=<base-domain> bash test/e2e.sh
 # Clean up when done
 bash test/cleanup-deployment.sh test/results/YYYYMMDDHHMMSS.json
 ```
+
+---
+
+## Deploy to a separate VPS
+
+By default, `/setup-coolify` provisions staging and production apps on the
+Coolify host itself (the `localhost` server in Coolify's server registry).
+For most workloads this is fine: one VPS runs Coolify + your apps.
+
+Use this section when you want apps to run on a different VPS than the one
+running Coolify — for example, a beefier app VPS and a small Coolify VPS,
+or environment-isolation between Coolify infrastructure and application
+runtime.
+
+See **[docs/schema.md](./schema.md#multi-server-deployment-phase-4)** for the
+canonical field reference. To convert an EXISTING localhost-deployed app to
+a separate server, see **[docs/multi-server-migration.md](./multi-server-migration.md)** —
+Coolify has no API to move apps between servers, so the conversion requires
+re-provisioning.
+
+### Step A: Register the deployment VPS in Coolify
+
+1. Provision the second VPS (any cloud provider; bash 4+, Docker, SSH access).
+2. In the Coolify UI, navigate to **Servers → Add Server**.
+3. Fill in:
+   - **Name** — a short identifier (e.g. `my-app-vps`). This is the value
+     you will set as `deploy_server:` in `coolify.yaml`.
+   - **IP Address** — the deployment VPS public IPv4. Coolify stores this
+     and `/setup-coolify` reads it back via `GET /servers/{uuid}.ip` for
+     DNS A record provisioning.
+   - **User / Port / Private Key** — SSH credentials Coolify uses to
+     manage Docker on the remote server.
+4. Verify Coolify can reach the server (Coolify shows a green "Connected"
+   indicator on the server detail page).
+
+### Step B: Add SSH access for the skill scripts
+
+`/setup-coolify` creates a Docker volume directly on the deployment VPS
+(for the Doppler secret cache). It needs its own SSH alias separate from
+the Coolify host alias.
+
+1. Add an entry to `~/.ssh/config`:
+
+   ```
+   Host my-app-vps
+     HostName <deployment-vps-ip>
+     User root
+     IdentityFile ~/.ssh/id_ed25519
+   ```
+
+2. Verify the alias works:
+
+   ```bash
+   ssh -o BatchMode=yes my-app-vps 'echo ok'
+   ```
+
+   Expected output: `ok`.
+
+### Step C: Update ~/.claude/coolify.json
+
+Add `deploy_ssh_host` (and optionally `deploy_vps_ip`) to the existing
+server entry — the one whose alias you reference from `coolify.yaml`. Do
+NOT add a new top-level server entry; the existing entry (which points to
+the Coolify instance) gains two optional fields:
+
+```json
+{
+  "servers": {
+    "vultr-stream": {
+      "url": "https://coolify.cicd.streamlinity.com",
+      "api_key": "...",
+      "doppler_account": "streamlinity",
+      "ssh_host": "v_cicd_stream",
+      "vps_ip": "149.248.4.46",
+      "deploy_ssh_host": "my-app-vps",
+      "deploy_vps_ip": "203.0.113.42"
+    }
+  }
+}
+```
+
+- `ssh_host` and `vps_ip` still describe the **Coolify host** (used for
+  Coolify API operations and the default localhost deployment case).
+- `deploy_ssh_host` and `deploy_vps_ip` describe the **deployment VPS**
+  (used when `deploy_server:` is set in `coolify.yaml`).
+
+`deploy_vps_ip` is optional — if omitted, `/setup-coolify` resolves the
+deployment VPS IP via the Coolify API (`GET /servers/{uuid}.ip` where uuid
+is the registered server's UUID), then falls back to SSH + `ifconfig.me`
+on `deploy_ssh_host`.
+
+### Step D: Set deploy_server in coolify.yaml
+
+In the target repo's `coolify.yaml`, add or uncomment:
+
+```yaml
+server: vultr-stream        # unchanged — selects the Coolify instance
+deploy_server: my-app-vps   # NEW — name of the Coolify-registered server (from Step A)
+doppler_project: myapp
+```
+
+The name must match exactly the value you entered in the Coolify UI at
+Step A (Coolify name lookup is case-sensitive).
+
+### Step E: Validate and provision
+
+Run the standard flow:
+
+```bash
+/setup-coolify validate    # confirms deploy_server exists in Coolify (MSRV-03)
+/setup-coolify             # creates apps on my-app-vps, not localhost
+```
+
+Expected output from `provision.sh` includes lines like:
+
+```
+deploy_server=my-app-vps deploy_server_uuid=<uuid> dest_uuid=<uuid> (source: coolify.yaml deploy_server)
+deploy_ssh_host=my-app-vps
+deploy_vps_ip=203.0.113.42 (source: coolify.json deploy_vps_ip)
+```
+
+`provision.sh` post-create verification reads back `GET /applications/{uuid}.destination.server`
+and hard-fails with a clear error if the app landed on the wrong server —
+no silent misrouting.
+
+### Step F: Verify the deployment
+
+1. **Coolify UI** — both `<project>-staging` and `<project>-production`
+   apps appear in the project, with their "Server" field set to
+   `my-app-vps` (not `localhost`).
+
+2. **DNS** — `dig +short <staging-domain>` resolves to the deployment VPS
+   public IP (`203.0.113.42` in the example), not the Coolify host IP.
+
+3. **SSH check** — `ssh my-app-vps "docker volume ls | grep doppler-cache"`
+   shows the Doppler cache volume created on the deployment VPS.
+
+4. **HTTPS** — the staging URL returns HTTP 200 from `/api/health` once
+   the app container is running.
 
 ---
 

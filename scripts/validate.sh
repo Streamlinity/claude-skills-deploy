@@ -12,6 +12,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$SCRIPT_DIR/lib-coolify-api.sh"
 source "$SCRIPT_DIR/lib-doppler-api.sh"
+source "$SCRIPT_DIR/lib-dns-api.sh"
 
 YAML_PATH="${1:-./coolify.yaml}"
 
@@ -25,6 +26,7 @@ eval "$(python3 -c "
 import yaml,sys
 d=yaml.safe_load(open('$YAML_PATH'))
 print(f\"PROJECT='{d.get('project','')}'\")
+print(f\"DEPLOY_SERVER='{d.get('deploy_server','')}'\")
 print(f\"SERVER='{d.get('server','')}'\")
 print(f\"DOPPLER_PROJECT='{d.get('doppler_project','')}'\")
 print(f\"REGISTRY_IMAGE='{d.get('registry',{}).get('image','')}'\")
@@ -83,6 +85,49 @@ if ! coolify_curl GET "/projects" >/dev/null 2>&1; then
 fi
 echo "validate: Coolify API reachable"
 
+# MSRV-03: when deploy_server is set in coolify.yaml, verify it exists in Coolify.
+if [ -n "${DEPLOY_SERVER:-}" ]; then
+  DEPLOY_SRV_UUID=$(coolify_get_server_uuid "$DEPLOY_SERVER")
+  if [ -z "$DEPLOY_SRV_UUID" ]; then
+    AVAILABLE=$(coolify_curl GET "/servers" 2>/dev/null | python3 -c "
+import json,sys
+try: srvs=json.load(sys.stdin)
+except: sys.exit(0)
+print(', '.join(s.get('name','') for s in srvs if s.get('name')))
+" 2>/dev/null || echo "<unable to list>")
+    fail "INVALID:coolify.yaml:deploy_server '$DEPLOY_SERVER' not registered in Coolify (available: $AVAILABLE)"
+  else
+    echo "validate: deploy_server '$DEPLOY_SERVER' -> uuid=$DEPLOY_SRV_UUID OK"
+  fi
+fi
+
+# MSRV-07: deploy_server and deploy_ssh_host must be specified together or skipped together.
+DEPLOY_SSH_HOST_CHECK=$(python3 -c "
+import json
+d=json.load(open('$HOME/.claude/coolify.json'))
+print(d.get('servers',{}).get('$SERVER',{}).get('deploy_ssh_host',''))
+")
+if [ -n "${DEPLOY_SERVER:-}" ] && [ -z "$DEPLOY_SSH_HOST_CHECK" ]; then
+  fail "INVALID:coolify.json:servers.$SERVER.deploy_ssh_host (missing — required when deploy_server is set)"
+  echo "" >&2
+  echo "deploy_server '$DEPLOY_SERVER' deploys apps to a separate server." >&2
+  echo "provision.sh needs deploy_ssh_host for Docker volume creation and DNS IP resolution." >&2
+  echo "Add it to ~/.claude/coolify.json servers.$SERVER. Example:" >&2
+  echo "  \"$SERVER\": { ..., \"deploy_ssh_host\": \"my-app-vps\" }" >&2
+  exit 1
+fi
+if [ -z "${DEPLOY_SERVER:-}" ] && [ -n "$DEPLOY_SSH_HOST_CHECK" ]; then
+  fail "INVALID:coolify.json:servers.$SERVER.deploy_ssh_host (present but deploy_server is absent in coolify.yaml)"
+  echo "" >&2
+  echo "deploy_ssh_host is only used when deploy_server is set. Either:" >&2
+  echo "  • Set deploy_server in coolify.yaml to deploy to a separate server, OR" >&2
+  echo "  • Remove deploy_ssh_host from ~/.claude/coolify.json servers.$SERVER." >&2
+  exit 1
+fi
+if [ -n "${DEPLOY_SERVER:-}" ] && [ -n "$DEPLOY_SSH_HOST_CHECK" ]; then
+  echo "validate: deploy_server + deploy_ssh_host coupling OK"
+fi
+
 # Verify every env_vars key exists in BOTH staging and production with non-placeholder values
 for ENV in "$STAGING_DOPPLER" "$PROD_DOPPLER"; do
   for KEY in $ENV_VARS; do
@@ -105,6 +150,67 @@ if [ "$ERRORS" -gt 0 ]; then
   echo "" >&2
   echo "Stop: $ERRORS Doppler key error(s) above. Fix in Doppler dashboard or via:" >&2
   echo "  doppler --account $DOPPLER_ACCOUNT secrets set --project $DOPPLER_PROJECT --config <env> KEY=VALUE" >&2
+  exit 1
+fi
+
+# Validate DNS block (if present and not provider: none)
+DNS_VALIDATION=$(python3 -c "
+import yaml, sys
+d = yaml.safe_load(open('$YAML_PATH'))
+dns = d.get('dns', {})
+provider = dns.get('provider', 'none')
+if not provider or provider == 'none':
+    print('skip')
+    sys.exit(0)
+zone_name    = dns.get('zone_name', '')
+cred_source  = dns.get('credential_source', 'doppler')
+cred_key     = dns.get('credential_key', '')
+staging_dom  = d.get('environments',{}).get('staging',{}).get('domain','')
+prod_dom     = d.get('environments',{}).get('production',{}).get('domain','')
+print(f'provider={provider}')
+print(f'zone_name={zone_name}')
+print(f'cred_source={cred_source}')
+print(f'cred_key={cred_key}')
+print(f'staging_domain={staging_dom}')
+print(f'prod_domain={prod_dom}')
+")
+
+if [ "$DNS_VALIDATION" = "skip" ]; then
+  echo "validate: dns: skipped (provider: none or block absent)"
+else
+  eval "$DNS_VALIDATION"
+
+  if [ -z "${zone_name:-}" ]; then
+    fail "INVALID:coolify.yaml:dns.zone_name (empty — required when dns.provider is not none)"
+  fi
+  if [ -z "${cred_key:-}" ]; then
+    fail "INVALID:coolify.yaml:dns.credential_key (empty — required when dns.provider is not none)"
+  fi
+
+  # Zone must be a suffix of both domains
+  if [ -n "${zone_name:-}" ] && [ -n "${staging_domain:-}" ]; then
+    if [[ "$staging_domain" != *".$zone_name" ]] && [[ "$staging_domain" != "$zone_name" ]]; then
+      fail "INVALID:coolify.yaml:dns.zone_name '$zone_name' is not a suffix of staging domain '$staging_domain'"
+    fi
+  fi
+  if [ -n "${zone_name:-}" ] && [ -n "${prod_domain:-}" ]; then
+    if [[ "$prod_domain" != *".$zone_name" ]] && [[ "$prod_domain" != "$zone_name" ]]; then
+      fail "INVALID:coolify.yaml:dns.zone_name '$zone_name' is not a suffix of production domain '$prod_domain'"
+    fi
+  fi
+
+  # Check credential is reachable (no mutations)
+  export DOPPLER_PROJECT DOPPLER_ENV="${STAGING_DOPPLER:-stg}"
+  if ! dns_check_credentials "$YAML_PATH"; then
+    fail "MISSING:DNS_CREDENTIAL:${cred_key:-<credential_key>} (not found in ${cred_source:-doppler})"
+  else
+    echo "validate: dns: provider=$provider zone=$zone_name credential=$cred_key (source: ${cred_source:-doppler}) — OK"
+  fi
+fi
+
+if [ "$ERRORS" -gt 0 ]; then
+  echo "" >&2
+  echo "Stop: $ERRORS error(s) above. Fix and re-run." >&2
   exit 1
 fi
 

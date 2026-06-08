@@ -46,15 +46,15 @@ annotation to change provisioning behaviour today.
 
 2. **Discover Coolify topology by lookup-by-name (no hardcoded UUIDs)**
    - Source `lib-coolify-api.sh`. Call `coolify_upsert_project "$PROJECT_NAME"` to get project UUID.
-   - Read the Coolify server name from `~/.claude/coolify.json` (`servers.<alias>.server_name`, default `localhost`). Call `coolify_get_server_uuid "$SERVER_NAME"`. Bail if not found.
-   - Call `coolify_get_destination_uuid "$SERVER_UUID"` (optional; single-node installs may not need it).
-   - Read `ssh_host` from `~/.claude/coolify.json`. REQUIRED — bail if missing (used in step 3 to create the Doppler-cache Docker volume on the Coolify VPS).
+   - Resolve `DEPLOY_SERVER_NAME`: uses `deploy_server` in `coolify.yaml` if set, otherwise reads `server_name` from `~/.claude/coolify.json` (`servers.<alias>.server_name`, default `localhost`). Call `coolify_get_server_uuid "$DEPLOY_SERVER_NAME"`. Bail if not found.
+   - Call `coolify_get_destination_uuid "$DEPLOY_SERVER_UUID"` (which scans existing applications on the server first, falling back to `/destinations`).
+   - Resolve `DEPLOY_SSH_HOST`: uses `deploy_ssh_host` in `coolify.json` if set, falling back to `ssh_host`. REQUIRED — bail if missing (used in step 3 to create the Doppler-cache Docker volume on the deployment VPS).
 
 3. **Upsert staging app**
    - Compute name: `${PROJECT_NAME}-staging` (e.g. `skillmap-staging`).
    - `coolify_find_app_by_name` — if UUID returned, skip create. Else `POST /applications/private-github-app` with `source_type: registry` and `docker_registry_image_name: $REGISTRY_IMAGE`. PATCH `is_auto_deploy_enabled=false`.
    - Source `lib-doppler-api.sh`. Create a service token scoped to `staging` config. Set `DOPPLER_TOKEN` env var on the app. Set every `env_vars` key on the app as a **runtime** env var (no build-time path under same-image promotion); values fetched from Doppler via `doppler --account <acct> secrets get --project <p> --config staging <KEY> --plain`.
-   - SSH to the Coolify server (derive host from server alias via `~/.ssh/config`) and run `docker volume create ${APP_UUID}-doppler-cache`. PATCH the app with `custom_docker_run_options: --mount source=${APP_UUID}-doppler-cache,target=/etc/doppler-cache`.
+   - SSH to the deployment VPS (`DEPLOY_SSH_HOST`) and run `docker volume create ${APP_UUID}-doppler-cache`. PATCH the app with `custom_docker_run_options: --mount source=${APP_UUID}-doppler-cache,target=/etc/doppler-cache`.
 
 4. **Upsert production app** (same flow, name = `${PROJECT_NAME}-production`)
 

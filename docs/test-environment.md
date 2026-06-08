@@ -31,8 +31,9 @@ embedded in the report automatically.
 The test runs against a real Coolify server. Before you can run the E2E test you need:
 
 - A Coolify instance with HTTPS enabled and a valid API token
-- DNS wildcard covering the base domain (e.g., `*.cicd.streamlinity.com`) — test
-  subdomains follow the pattern `csd-e2e-YYYYMMDDHHMMSS-staging.<base-domain>`
+- DNS coverage for test subdomains following the pattern `csd-hello-test-YYYYMMDDHHMMSS-staging.<base-domain>`. Either:
+  - A wildcard A record (e.g., `*.cicd.streamlinity.com → <vps-ip>`), **or**
+  - `dns_default` configured in `~/.claude/coolify.json` for the server alias — the test then creates and cleans up per-run A records automatically via the Cloudflare API
 - `~/.claude/coolify.json` populated with the server alias, URL, API key, Doppler
   account, and SSH host
 - Doppler CLI authenticated (`doppler login`)
@@ -78,7 +79,7 @@ GitHub Actions workflow `push-test-image.yml` builds and pushes the image using
 `GITHUB_TOKEN` (no separate PAT required). Trigger it manually:
 
 ```bash
-gh workflow run push-test-image.yml --repo anatesan-stream/claude-skills-deploy
+gh workflow run push-test-image.yml --repo Streamlinity/claude-skills-deploy
 ```
 
 Or it runs automatically on any push to `main` that modifies `test/hello-world/`.
@@ -107,7 +108,7 @@ Requires a GitHub PAT with `write:packages, read:packages, delete:packages` scop
 
 **Verify the image is pullable** before running the test:
 ```bash
-docker pull ghcr.io/anatesan-stream/csd-hello-world:latest
+docker pull ghcr.io/streamlinity/csd-hello-world:latest
 ```
 
 ### 4. Required environment variables
@@ -119,7 +120,7 @@ a specific error and exit if either is missing.
 |----------|----------|-------------|---------|
 | `E2E_SERVER` | Yes | Server alias key from `~/.claude/coolify.json` | `vultr-stream` |
 | `E2E_BASE_DOMAIN` | Yes | Base domain for test subdomains. Must be covered by a wildcard DNS A record pointing at the VPS. | `cicd.streamlinity.com` |
-| `E2E_IMAGE` | No | Docker image to deploy. Defaults to `ghcr.io/anatesan-stream/csd-hello-world:latest`. Override to use your fork's image. | `ghcr.io/my-org/csd-hello-world:latest` |
+| `E2E_IMAGE` | No | Docker image to deploy. Defaults to `ghcr.io/streamlinity/csd-hello-world:latest`. Override to use your fork's image. | `ghcr.io/my-org/csd-hello-world:latest` |
 
 ---
 
@@ -153,32 +154,34 @@ At the end of a successful run, you will see:
 
 **What the test does internally:**
 
+0. Scans for stale `csd-hello-test-*` resources from previous runs (report files, Coolify apps, DNS records) and deletes them before starting
 1. Verifies prerequisites (Coolify API reachable, Doppler authenticated, test image pullable)
-2. Creates a throwaway Doppler project (`csd-e2e-YYYYMMDDHHMMSS`) with `stg`/`prd` configs and seeds dummy secrets
-3. Generates a temporary `coolify.yaml` scoped to the throwaway project
-4. Runs `validate.sh` (dry-run pre-flight)
-5. Runs `provision.sh` (creates Coolify project + staging app + production app, wires Doppler service tokens, mounts Docker volumes)
-6. Triggers a staging deploy via the Coolify API and polls until the container reports `running:healthy`
-7. Triggers a production deploy
-8. Smoke-tests the staging HTTPS URL (`/api/health` → HTTP 200 + body contains sentinel string)
+2. Creates a throwaway Doppler project (`csd-hello-test-YYYYMMDDHHMMSS`) with `stg`/`prd` configs and seeds dummy secrets
+3. Generates a temporary `coolify.yaml`; if `dns_default` is set in `~/.claude/coolify.json`, a `dns:` block is injected automatically
+4. Runs `validate.sh` (dry-run pre-flight, including DNS credential check)
+5. Runs `provision.sh` (creates Coolify project + staging + production apps, wires Doppler service tokens, mounts Docker volumes; creates DNS A records if configured)
+6. Triggers a staging deploy via the Coolify API and polls until `running:healthy`
+7. Smoke-tests the staging HTTPS URL (`/api/health` → HTTP 200 + body contains sentinel string)
+8. Triggers a production deploy and polls until `running:healthy`
 9. Writes `test/results/YYYYMMDDHHMMSS.json` (the handoff report)
+10. Prints a completion summary: staging and production URLs, DNS records created (with record IDs), and the exact cleanup command
 
-**Failure behaviour:** if any step fails, all created resources are deleted automatically
-via a `trap EXIT` handler, and the report is still written with whatever was completed.
-Use `--keep` to suppress the failure teardown if you need to inspect the broken state in
-the Coolify UI.
+**On success:** all resources (DNS records, Coolify apps, Doppler project) are left running for inspection. Run the cleanup command from the summary when done.
+
+**On failure:** all resources are torn down automatically via `trap EXIT` — including any DNS records created before the failure. Use `--keep` to suppress teardown and inspect the broken state manually; with `--keep`, DNS records are also left running.
 
 ### Phase 2: Inspect
 
-After a successful run, open the staging URL in a browser:
+The completion summary at the end of the test output prints the live URLs directly. You can also browse them:
 
 ```
-https://csd-e2e-YYYYMMDDHHMMSS-staging.<base-domain>/api/health  → 200 OK
-https://csd-e2e-YYYYMMDDHHMMSS-staging.<base-domain>/            → hello-world page
+https://csd-hello-test-YYYYMMDDHHMMSS-staging.<base-domain>/api/health  → 200 OK
+https://csd-hello-test-YYYYMMDDHHMMSS-staging.<base-domain>/            → hello-world page
+https://csd-hello-test-YYYYMMDDHHMMSS-production.<base-domain>/         → same hello-world page
 ```
 
 In Coolify UI, verify that:
-- The throwaway project (`csd-e2e-YYYYMMDDHHMMSS`) is visible
+- The throwaway project (`csd-hello-test-YYYYMMDDHHMMSS`) is visible
 - Both staging and production apps show a green running status
 - Environment Variables on each app show `DOPPLER_TOKEN` set to a service token
 
@@ -197,14 +200,23 @@ also listed by `ls test/results/` if you need to find it.
 
 ```json
 {
-  "run_timestamp": "2026-05-22T11:10:12+00:00",
+  "run_timestamp": "2026-06-05T20:15:42+00:00",
   "server_alias": "vultr-stream",
   "ssh_host": "v_cicd_stream",
-  "staging_url": "https://csd-e2e-...-staging.cicd.streamlinity.com",
-  "coolify_project_uuid": "c14f0xso31g3k3scu42v1kb1",
-  "staging_app_uuid": "su6tfh4w4pi7iz728f59wbis",
-  "production_app_uuid": "yzdewk70emltd0wgajqk61cd",
-  "doppler_project": "csd-e2e-2026-05-22-111012",
+  "staging_url": "https://csd-hello-test-20260605-201542-staging.cicd.streamlinity.com",
+  "coolify_project_uuid": "mtbk0jixkdzwpgzvhfkmw6bb",
+  "staging_app_uuid": "w104d7pje7caa46rbh91974m",
+  "production_app_uuid": "dmjt4oi8m78jvapyffzpx34x",
+  "doppler_project": "csd-hello-test-20260605-201542",
+  "dns_provider": "cloudflare",
+  "dns_zone_id": "0460cc9ea6669c54884bfe98317396ea",
+  "dns_zone_name": "streamlinity.com",
+  "dns_credential_source": "coolify_json",
+  "dns_credential_key": "cloudflare_api_token",
+  "dns_records": [
+    {"name": "csd-hello-test-20260605-201542-staging.cicd.streamlinity.com", "record_id": "c5737094abc298b6...", "type": "A"},
+    {"name": "csd-hello-test-20260605-201542-production.cicd.streamlinity.com", "record_id": "e83961f8ef1e2360...", "type": "A"}
+  ],
   "steps": [ ... ]
 }
 ```
@@ -216,11 +228,12 @@ look up any IDs manually.
 
 | Step | Resource | Method |
 |------|----------|--------|
-| 1 | Staging app | Coolify API `DELETE /applications/<staging_app_uuid>` |
-| 2 | Production app | Coolify API `DELETE /applications/<production_app_uuid>` |
-| 3 | Coolify project | Coolify API `DELETE /projects/<coolify_project_uuid>` (retried up to 3× with backoff) |
-| 4 | Docker volumes (×2) | SSH to VPS: `docker volume rm <app-uuid>-doppler-cache` for each app |
-| 5 | Doppler project | `doppler projects delete <doppler_project>` |
+| 1 | DNS A records (if any) | Cloudflare API: delete each record by ID from the `dns_records` array in the report |
+| 2 | Staging app | Coolify API `DELETE /applications/<staging_app_uuid>` |
+| 3 | Production app | Coolify API `DELETE /applications/<production_app_uuid>` |
+| 4 | Coolify project | Coolify API `DELETE /projects/<coolify_project_uuid>` (retried up to 3× with backoff) |
+| 5 | Docker volumes (×2) | SSH to VPS: `docker volume rm <app-uuid>-doppler-cache` for each app |
+| 6 | Doppler project | `doppler projects delete <doppler_project>` |
 
 The cleanup script prints a confirmation block and exits 0. It is idempotent — safe to
 re-run against the same report if interrupted.
@@ -238,7 +251,9 @@ re-run against the same report if interrupted.
 | `ssh: Could not resolve hostname` | `ssh_host` alias not in `~/.ssh/config`, or not populated in `coolify.json` | Confirm `~/.ssh/config` has the alias and `ssh -o BatchMode=yes <alias> 'echo ok'` returns `ok` |
 | `ERROR: report file missing fields: ssh_host, doppler_project` | Report was written by a pre-Phase-3 version of `e2e.sh` | Use a report from a recent run, or patch the JSON manually with the missing fields |
 | `⚠ could not delete Coolify project` after cleanup | Project delete failed even after retry | The project may contain other apps not created by this test run. Delete manually in Coolify UI. |
-| Doppler delete fails | `csd-e2e-*` project already deleted or CLI not authenticated | Re-authenticate with `doppler login` and retry, or delete manually at `dashboard.doppler.com` |
+| `⚠ could not delete <fqdn>` during cleanup | Cloudflare API token expired or wrong permissions | Verify the token in `~/.claude/coolify.json` has **Zone → DNS → Edit** permission, then delete the orphaned A records manually in Cloudflare dashboard. |
+| `MISSING:DNS_CREDENTIAL:...` in validate output | DNS provider is `cloudflare` but the token is not in the configured source | Add `cloudflare_api_token` to the server entry in `~/.claude/coolify.json` (if `credential_source: coolify_json`) or set it as a Doppler secret (if `credential_source: doppler`). |
+| Doppler delete fails | `csd-hello-test-*` project already deleted or CLI not authenticated | Re-authenticate with `doppler login` and retry, or delete manually at `dashboard.doppler.com` |
 
 ---
 

@@ -13,7 +13,7 @@ Coolify + Doppler deployment skills for Claude Code.
 ## Install
 
 ```bash
-git clone https://github.com/anatesan-stream/claude-skills-deploy.git ~/.claude/skills/setup-coolify
+git clone https://github.com/Streamlinity/claude-skills-deploy.git ~/.claude/skills/setup-coolify
 ```
 
 No build step. `/setup-coolify` is immediately available in any new Claude Code session.
@@ -281,16 +281,18 @@ A Claude Code skills repo that provides a standardized, domain-agnostic way to d
 <!-- GSD:architecture-end -->
 
 <!-- GSD:workflow-start source:GSD defaults -->
-## GSD Workflow Enforcement
+## GSD 1.x Workflow Enforcement
 
-Before using Edit, Write, or other file-changing tools, start work through a GSD command so planning artifacts and execution context stay in sync.
+Do NOT use the `gsd` CLI tool (which belongs to GSD 2.x). Instead, strictly follow the GSD 1.x workflows defined in `~/.claude/get-shit-done/workflows/` (such as `execute-plan.md`, `discuss-phase.md`, `plan-phase.md`, etc.) for all planning, discussion, and execution.
 
-Use these entry points:
-- `/gsd:quick` for small fixes, doc updates, and ad-hoc tasks
-- `/gsd:debug` for investigation and bug fixing
-- `/gsd:execute-phase` for planned phase work
-
-Do not make direct repo edits outside a GSD workflow unless the user explicitly asks to bypass it.
+For all execution:
+1. **Load Context**: Read `.planning/STATE.md` at startup to load project context.
+2. **Step Sequencing**: Sequentially follow the tasks in the active `*-PLAN.md` file under `.planning/phases/`.
+3. **Task Gates**: Perform the mandatory `<read_first>` file reads before editing, and verify all `<acceptance_criteria>` upon task completion.
+4. **State Management**: Update GSD 1.x project state, roadmap, and requirements exclusively using the helper script:
+   `node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs"` (e.g., `state advance-plan`, `roadmap update-plan-progress`, `requirements mark-complete`).
+5. **Commit Protocol**: After verifying each task, stage files individually and commit using the format: `{type}({phase}-{plan}): {description}`.
+6. **Plan Summary**: Create `{phase}-{plan}-SUMMARY.md` in the phase directory upon completion.
 <!-- GSD:workflow-end -->
 
 <!-- GSD:profile-start -->

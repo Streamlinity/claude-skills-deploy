@@ -10,7 +10,7 @@ Run through these steps once per domain. Steps ①–③ and ⑤–⑦ are CLI c
 
 ```
 ┌─── ① Install skill ─────────────────────────────────────────────────────┐
-│  • Clone anatesan-stream/claude-skills-deploy to                        │
+│  • Clone Streamlinity/claude-skills-deploy to                           │
 │    ~/.claude/skills/setup-coolify/                                      │
 │  • (Or fork first on GitHub if customizing scripts / workflow templates)│
 └─────────────────────────────────────────────────────────────────────────┘
@@ -109,7 +109,7 @@ Seven components work together once setup is complete. The overview below shows 
 
 | Component | Contents |
 |-----------|----------|
-| **Skill Repo** | Upstream repository (anatesan-stream/claude-skills-deploy) containing `SKILL.md`, `scripts/`, `init/`, `docs/`, `references/` |
+| **Skill Repo** | Upstream repository (Streamlinity/claude-skills-deploy) containing `SKILL.md`, `scripts/`, `init/`, `docs/`, `references/` |
 | **Developer Machine** | `~/.claude/skills/setup-coolify/` (installed skill) · `~/.claude/coolify.json` (Coolify URL, API key, Doppler account, ssh_host) |
 | **App Repo** | `coolify.yaml` (deploy manifest, committed, no secrets) · `.github/workflows/deploy.yml` (CI pipeline, committed) |
 | **GitHub Actions** | Build job · deploy-staging job · smoke-test · deploy-production job (see pipeline detail below) |

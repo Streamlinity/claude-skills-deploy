@@ -19,6 +19,14 @@ project: {{PROJECT}}
 #         Run /setup-coolify init to create ~/.claude/coolify.json if you haven't yet.
 server: {{SERVER}}
 
+# CHANGE: Coolify-registered server name where apps are deployed.
+#         When absent or commented out (the default), apps deploy on the Coolify host
+#         (server_name from coolify.json, defaulting to 'localhost'). Set this only
+#         when staging/production apps should run on a separately-registered VPS.
+#         If set, also add 'deploy_ssh_host' and (optionally) 'deploy_vps_ip' to the
+#         matching server entry in ~/.claude/coolify.json. See docs/schema.md.
+{{DEPLOY_SERVER_LINE}}
+
 # CHANGE: Doppler project slug — usually same as project. Leave blank when running
 #         init.sh to auto-default to the project name.
 doppler_project: {{DOPPLER_PROJECT}}
@@ -52,6 +60,25 @@ environments:
     # LEAVE: matches the Doppler config name inside your doppler_project.
     # Doppler creates stg and prd by default — do not change unless you renamed them.
     doppler_environment: prd
+
+# DNS provisioning — optional but recommended.
+# When configured, /setup-coolify creates A records pointing at your VPS automatically,
+# eliminating the manual DNS step before Let's Encrypt HTTPS issuance succeeds.
+# Set provider to 'none' to skip DNS provisioning and create A records manually.
+dns:
+  # CHANGE: cloudflare | none
+  provider: {{DNS_PROVIDER}}
+  # CHANGE: root zone (e.g. example.com). Must be a suffix of both staging + production domains.
+  # Leave empty when provider is 'none'.
+  zone_name: {{DNS_ZONE_NAME}}
+  # LEAVE: doppler | coolify_json. Where the API token is stored.
+  #   doppler      — token is a secret in your Doppler project (recommended).
+  #   coolify_json — token is stored in ~/.claude/coolify.json servers.<alias>.<credential_key>.
+  credential_source: {{DNS_CREDENTIAL_SOURCE}}
+  # CHANGE: Doppler secret name (e.g. CLOUDFLARE_API_TOKEN) if credential_source=doppler,
+  #         OR the coolify.json server field name (e.g. cloudflare_api_token) if credential_source=coolify_json.
+  # Leave empty when provider is 'none'.
+  credential_key: {{DNS_CREDENTIAL_KEY}}
 
 # CHANGE: list every environment variable your app reads (e.g. DATABASE_URL).
 # These must exist in BOTH the stg and prd Doppler configs.

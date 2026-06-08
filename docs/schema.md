@@ -35,6 +35,76 @@ instance and Doppler account to use; all other config is repo-local.
 | `build.dockerfile` | string | `./Dockerfile` | Path to the Dockerfile, relative to repo root. For nested apps (e.g. `build.context: ./skillmap`), set this to `./skillmap/Dockerfile`. |
 | `coolify_app_ids.staging` | string \| null | `~` | Coolify application UUID for staging. Written by `provision.sh` after the first successful run. Do not edit manually. |
 | `coolify_app_ids.production` | string \| null | `~` | Coolify application UUID for production. Written by `provision.sh` after the first successful run. Do not edit manually. |
+| `deploy_server` | string | _empty_ | Optional. Name of a Coolify-registered server to deploy apps on. When absent, apps deploy on the Coolify host (server_name from coolify.json, defaulting to `localhost`). Set this when staging/production should run on a separately-registered VPS rather than the Coolify host. Example: `my-app-vps`. |
+
+### Optional DNS block
+
+Automates A record creation for staging and production domains, eliminating the manual DNS step before Coolify can issue Let's Encrypt certificates. When `provider: none` (or the block is absent), A records must be created manually.
+
+| Field | Type | Default | Description | Example |
+|-------|------|---------|-------------|---------|
+| `dns.provider` | string | `none` | DNS provider. `cloudflare` enables automated provisioning; `none` skips DNS entirely. | `cloudflare` |
+| `dns.zone_name` | string | — | Root DNS zone. Must be a suffix of both `environments.staging.domain` and `environments.production.domain`. | `example.com` |
+| `dns.credential_source` | string | `doppler` | Where the API token is stored. `doppler` — read from the Doppler staging config at provision time. `coolify_json` — read from `~/.claude/coolify.json` servers.<alias>.<credential_key>. | `doppler` |
+| `dns.credential_key` | string | — | Name of the Doppler secret (e.g. `CLOUDFLARE_API_TOKEN`) or `coolify.json` server field (e.g. `cloudflare_api_token`) that holds the provider API token. | `CLOUDFLARE_API_TOKEN` |
+
+**Example dns block (Cloudflare, token in Doppler):**
+
+```yaml
+dns:
+  provider: cloudflare
+  zone_name: example.com
+  credential_source: doppler
+  credential_key: CLOUDFLARE_API_TOKEN
+```
+
+**To skip DNS automation:**
+
+```yaml
+dns:
+  provider: none
+  zone_name: ""
+  credential_source: doppler
+  credential_key: ""
+```
+
+Or simply omit the `dns:` block entirely.
+
+## DNS Providers
+
+### Cloudflare
+
+Cloudflare is the only supported provider in this release. The `lib-dns-api.sh` library includes a provider dispatch shim (`dns_upsert_a_record`, `dns_delete_record`) that routes calls by `$DNS_PROVIDER` — adding a new provider requires only implementing the corresponding `dns_<provider>_*` functions and a new case branch.
+
+**Token requirements:** Create a Cloudflare API token at `https://dash.cloudflare.com/profile/api-tokens` with **Zone: DNS: Edit** permission scoped to the target zone only. User-level "Global API Key" is not recommended.
+
+**Storing the token in Doppler (recommended):**
+
+```bash
+doppler secrets set CLOUDFLARE_API_TOKEN --project <your-project> --config stg
+```
+
+The token is shared across environments (DNS credentials are zone-level, not env-level), so storing it once in the staging config is sufficient. `provision.sh` and `validate.sh` read from the staging config by default.
+
+**Storing the token in coolify.json (alternative):**
+
+Add a `cloudflare_api_token` (or any field name matching `dns.credential_key`) to your server entry:
+
+```json
+{
+  "servers": {
+    "vultr-stream": {
+      "url": "...",
+      "api_key": "...",
+      "doppler_account": "...",
+      "ssh_host": "...",
+      "cloudflare_api_token": "cf_..."
+    }
+  }
+}
+```
+
+Then set `dns.credential_source: coolify_json` and `dns.credential_key: cloudflare_api_token` in `coolify.yaml`.
 
 ### Reserved (Not Yet Active)
 
@@ -84,6 +154,11 @@ using the schema below.
 | Field | Default | Description |
 |-------|---------|-------------|
 | `server_name` | `"localhost"` | Coolify-side name of the managed Docker host node. The Coolify UI lets you rename the node from the default `"localhost"` (Settings → Servers). `provision.sh` uses this value to look up the server UUID via `GET /servers`. Set this only if your Coolify instance has a custom server name; otherwise omit it and the default applies. |
+| `vps_ip` | — | Public IPv4 address of the Coolify VPS. When set, `provision.sh` uses this value directly instead of resolving it via SSH + `ifconfig.me` on every run. Optional but recommended to avoid an SSH round-trip on re-runs. Example: `"149.248.4.46"`. |
+| `cloudflare_api_token` | — | Cloudflare User API Token with **Zone: DNS: Edit** permission scoped to the target zone. Only required when `dns.credential_source: coolify_json` in `coolify.yaml`. Alternatively, store the token in Doppler and set `credential_source: doppler`. |
+| `dns_default` | — | Object read by `test/e2e.sh` to inject a `dns:` block into E2E test runs. When present, every test run creates and deletes real DNS records, exercising the full DNS code path automatically. Structure mirrors the `dns:` block in `coolify.yaml` — see the **Optional DNS block** section above. Example below. |
+| `deploy_ssh_host` | — | Optional. SSH alias from `~/.ssh/config` for the deployment VPS. Used by `provision.sh` to create Docker volumes on the deployment VPS (when `deploy_server` is set in `coolify.yaml`). Falls back to `ssh_host` when absent — the Coolify host, which is correct for the localhost deployment case. Set this only when your deployment VPS is separate from your Coolify host. Example: `my-app-vps`. |
+| `deploy_vps_ip` | — | Optional. Public IPv4 address of the deployment VPS. Used by `provision.sh` to set DNS A records pointing at the deployment server (not the Coolify host). Resolution order when set in coolify.yaml: `deploy_vps_ip` (this field) → `GET /servers/{uuid}.ip` (Coolify API, skipped when value is `host.docker.internal`) → SSH `ifconfig.me` on `deploy_ssh_host`. Set this to skip the Coolify-API and SSH round-trips. Example: `"203.0.113.42"`. |
 
 ---
 
@@ -163,7 +238,15 @@ each `coolify.yaml` selects which entry to use.
       "url": "https://coolify.cicd.streamlinity.com",
       "api_key": "REDACTED",
       "doppler_account": "streamlinity",
-      "ssh_host": "v_cicd_stream"
+      "ssh_host": "v_cicd_stream",
+      "vps_ip": "149.248.4.46",
+      "cloudflare_api_token": "cfut_...",
+      "dns_default": {
+        "provider": "cloudflare",
+        "zone_name": "streamlinity.com",
+        "credential_source": "coolify_json",
+        "credential_key": "cloudflare_api_token"
+      }
     },
     "hetzner-strategem": {
       "url": "https://coolify.cicd.strategem.ai",
@@ -197,6 +280,11 @@ Set these yourself when onboarding a new repo:
 - `env_vars` (list)
 - `build.context` (optional; default `.`)
 - `build.dockerfile` (optional; default `./Dockerfile`)
+- `dns.provider` (optional; default `none`)
+- `dns.zone_name` (optional; required when `dns.provider` is not `none`)
+- `dns.credential_source` (optional; default `doppler`)
+- `dns.credential_key` (optional; required when `dns.provider` is not `none`)
+- `deploy_server` (optional; default empty — apps deploy on the Coolify host)
 
 ### Skill-written fields (in `coolify.yaml`)
 
@@ -227,6 +315,7 @@ populate interactively, or write the file manually.
   `registry.image`, `environments.staging.domain`, `environments.staging.doppler_environment`,
   `environments.production.domain`, `environments.production.doppler_environment`, `env_vars`)
 - `env_vars` is a non-empty list
+- If `dns.provider` is not `none`: `dns.zone_name` is non-empty; `dns.zone_name` is a suffix of both staging and production domains; `dns.credential_key` is non-empty; the credential named by `dns.credential_key` is present in the declared `dns.credential_source` (Doppler staging config or `coolify.json`)
 
 ### coolify.json checks
 
@@ -284,3 +373,24 @@ server name.
 These cache fields are optional in the schema; `provision.sh` writes them on first run
 and reads them to skip re-provisioning on subsequent runs. Files created before Phase 7
 that lack this block are treated as if both values are `~` (null).
+
+### Multi-server deployment (Phase 4)
+
+Three new optional fields:
+
+- `deploy_server` in `coolify.yaml` — defaults to empty (deploys on the Coolify host)
+- `deploy_ssh_host` in `coolify.json` server entries — defaults to `ssh_host` value
+- `deploy_vps_ip` in `coolify.json` server entries — defaults via Coolify API + SSH fallback
+
+Existing `coolify.yaml` files that omit `deploy_server:` continue to work
+unchanged. `provision.sh` resolves the deploy target via this fallback
+chain: `coolify.yaml deploy_server` → `coolify.json servers.<alias>.server_name`
+→ `"localhost"`. For SSH operations: `deploy_ssh_host` → `ssh_host`. For DNS
+A records: `deploy_vps_ip` → Coolify `GET /servers/{uuid}.ip` (skipping
+`host.docker.internal`) → `vps_ip` (only when `deploy_server` is unset) →
+SSH + `ifconfig.me`.
+
+See [docs/multi-server-migration.md](./multi-server-migration.md) for
+converting an existing localhost-deployed app to a separately-registered
+server. Coolify has no API to move existing apps between servers — the
+migration requires deleting and re-provisioning.

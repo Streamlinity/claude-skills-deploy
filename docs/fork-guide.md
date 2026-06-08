@@ -9,7 +9,7 @@ need to fork the repository. You only need to change configuration.
 
 To manage deployments across different domains and organizations without documentation circularity, follow these three simple rules:
 
-1. **Same-Domain Development (e.g. `streamlinity.com`):** A direct **clone** of the upstream repository (`anatesan-stream/claude-skills-deploy`) is the correct approach. No fork is needed.
+1. **Same-Domain Development (e.g. `streamlinity.com`):** A direct **clone** of the upstream repository (`Streamlinity/claude-skills-deploy`) is the correct approach. No fork is needed.
 2. **First Repo in a Different Domain/Org (e.g. `strategem.ai`):** You should **fork** `claude-skills-deploy` to your organization's GitHub namespace. This establishes a master copy where you can:
    * Customize the generated GitHub Actions deploy workflows (`init/deploy.yml.template`) to match the new domain's compliance, build systems, or security rules.
    * Modify bootstrapper defaults (e.g., in `init/init.sh`) so developers aren't entering the same server arguments repeatedly during setup.
@@ -218,7 +218,7 @@ Steps to fork:
 
 1. Fork the repo on GitHub:
    ```bash
-   gh repo fork anatesan-stream/claude-skills-deploy --org StrategemAI --clone
+   gh repo fork Streamlinity/claude-skills-deploy --org StrategemAI --clone
    ```
 
 2. Clone YOUR fork into the skill directory (not upstream):
@@ -231,7 +231,7 @@ Steps to fork:
 
 4. Push changes to your fork. To pull upstream updates:
    ```bash
-   git remote add upstream git@github.com:anatesan-stream/claude-skills-deploy.git
+   git remote add upstream git@github.com:Streamlinity/claude-skills-deploy.git
    git fetch upstream && git merge upstream/main
    ```
 

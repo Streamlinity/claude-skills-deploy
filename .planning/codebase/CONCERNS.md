@@ -209,7 +209,7 @@
 - Priority: Medium
 
 **E2E test is hardcoded to a specific domain and org:**
-- Issue: `test/e2e.sh` lines 256–257 hardcode `cicd.streamlinity.com` as the test domain. `E2E_IMAGE` defaults to `ghcr.io/anatesan-stream/...`. Running the E2E against a different Coolify server would produce test apps with unreachable FQDNs (the smoke test would fail at DNS/cert), making the test unreliable for contributors using other servers.
+- Issue: `test/e2e.sh` lines 256–257 hardcode `cicd.streamlinity.com` as the test domain. `E2E_IMAGE` defaults to `ghcr.io/streamlinity/...`. Running the E2E against a different Coolify server would produce test apps with unreachable FQDNs (the smoke test would fail at DNS/cert), making the test unreliable for contributors using other servers.
 - Files: `test/e2e.sh:256-257`, `test/e2e.sh:38`
 - Risk: E2E test is non-portable outside the original maintainer's infrastructure.
 - Fix approach: Make the base domain configurable via an `E2E_BASE_DOMAIN` environment variable.
