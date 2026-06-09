@@ -34,7 +34,7 @@ Choose the pathway that matches your goal to avoid reading in circles:
 
 ## Quick Install
 
-Clone the repository directly into your personal Claude skills directory:
+**First time:** Clone the repository directly into your personal Claude skills directory:
 
 ```bash
 git clone https://github.com/Streamlinity/claude-skills-deploy.git ~/.claude/skills/setup-coolify
@@ -42,6 +42,14 @@ git clone https://github.com/Streamlinity/claude-skills-deploy.git ~/.claude/ski
 
 Open any Claude Code session — `/setup-coolify` is immediately available. No build or install step is required.
 If you are setting this up for the first time, go to **[docs/setup-guide.md](./docs/setup-guide.md)** to configure your server credentials.
+
+**Updating to the latest version:** The install directory is already a git repo tracking `Streamlinity/claude-skills-deploy`. Pull the latest changes at any time with:
+
+```bash
+git -C ~/.claude/skills/setup-coolify pull
+```
+
+After pulling, re-run `/setup-coolify validate` in any repo — it will print `WARN:` lines for any new optional fields that your `~/.claude/coolify.json` server entries are missing. Run `/setup-coolify init_cicd` to fill those fields interactively.
 
 **Local tooling checklist** (quick verify before running anything):
 

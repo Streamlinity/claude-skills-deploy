@@ -78,6 +78,53 @@ fi
 
 echo "validate: server alias '$SERVER' -> $COOLIFY_URL (doppler account: $DOPPLER_ACCOUNT, ssh_host: $SSH_HOST_CHECK)"
 
+# ── Advisory warnings for missing optional coolify.json fields ─────────────────
+# These fields are not required for a basic deploy but their absence causes subtle
+# failures. Warnings are non-blocking — they print to stderr and never increment
+# ERRORS, so validate still exits 0 when keys pass.
+WARNINGS=0
+warn() { echo "WARN: $*" >&2; WARNINGS=$((WARNINGS+1)); }
+
+_server_field=$(python3 -c "
+import json, sys
+d = json.load(open('$HOME/.claude/coolify.json'))
+s = d.get('servers', {}).get('$SERVER', {})
+missing = []
+# doppler_token: without it the CLI uses ambient auth and may hit the wrong workspace
+if not s.get('doppler_token'):
+    missing.append('doppler_token')
+# cloudflare_api_token: required when dns.credential_source=coolify_json
+if not s.get('cloudflare_api_token'):
+    missing.append('cloudflare_api_token')
+# dns_default: needed for E2E tests to exercise the DNS code path automatically
+if not s.get('dns_default'):
+    missing.append('dns_default')
+print(' '.join(missing))
+" 2>/dev/null || echo "")
+
+if [ -n "$_server_field" ]; then
+  for _f in $_server_field; do
+    case "$_f" in
+      doppler_token)
+        warn "servers.$SERVER.doppler_token not set in ~/.claude/coolify.json" >&2
+        echo "       Without it the Doppler CLI uses ambient auth and may target the wrong workspace." >&2
+        echo "       Fix: re-run /setup-coolify init_cicd to add this field." >&2
+        ;;
+      cloudflare_api_token)
+        warn "servers.$SERVER.cloudflare_api_token not set in ~/.claude/coolify.json" >&2
+        echo "       Required when dns.credential_source: coolify_json in coolify.yaml." >&2
+        echo "       Fix: re-run /setup-coolify init_cicd to add this field." >&2
+        ;;
+      dns_default)
+        warn "servers.$SERVER.dns_default not set in ~/.claude/coolify.json" >&2
+        echo "       E2E tests will skip the DNS provisioning code path." >&2
+        echo "       Fix: re-run /setup-coolify init_cicd to add this block." >&2
+        ;;
+    esac
+  done
+  echo "" >&2
+fi
+
 # Verify Coolify API reachable
 if ! coolify_curl GET "/projects" >/dev/null 2>&1; then
   fail "INVALID:coolify:api unreachable at $COOLIFY_URL (check api_key, HTTPS, allowed_ips)"

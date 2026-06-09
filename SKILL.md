@@ -75,6 +75,8 @@ Interactive prompts (server credential collection):
 
 If the alias already exists in `~/.claude/coolify.json`, validates existing credentials first (Coolify API ping + `doppler whoami`). Prompts to replace only if validation fails.
 
+**Re-run to fill missing optional fields (gap-fill mode):** As the skill evolves, new optional fields are added to the server entry schema (`doppler_token`, `cloudflare_api_token`, `dns_default`). Older entries created before these fields existed will be missing them. Re-running `/setup-coolify init_cicd` for an existing alias is the supported upgrade path — it skips fields that already pass validation and only prompts for the fields that are absent or fail their check. `/setup-coolify validate` will print `WARN:` lines for any missing optional fields and instruct you to re-run `init_cicd` to fill them.
+
 Merge into `~/.claude/coolify.json` (preserve existing servers). `chmod 0600`.
 
 Example resulting server entry:
