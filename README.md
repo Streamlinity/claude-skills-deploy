@@ -60,7 +60,8 @@ ssh -o BatchMode=yes <ssh-alias> 'echo ok'  # SSH alias resolves
 | Form | Action |
 |------|--------|
 | `/setup-coolify` | Provision/update: ensures Doppler keys exist, upserts staging + production Coolify apps, syncs env vars, mounts Doppler-fallback volume, triggers deploys. Idempotent. |
-| `/setup-coolify init` | Interactive setup of `~/.claude/coolify.json` for a new server alias. Prompts for url, api_key, doppler_account, ssh_host. |
+| `/setup-coolify init_cicd` | Interactive setup of `~/.claude/coolify.json` for a new server alias. Validates existing credentials before prompting for replacement. |
+| `/setup-coolify init_app` | Bootstraps `coolify.yaml` + `.github/workflows/deploy.yml` in the current repo. Seeds dev+stg Doppler configs from `.env.local` when present. |}
 | `/setup-coolify validate` | Dry-run: checks every `env_vars` key in coolify.yaml exists in Doppler staging AND production. Verifies Coolify API reachability. No mutations. |
 
 ---

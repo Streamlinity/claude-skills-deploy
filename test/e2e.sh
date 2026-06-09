@@ -91,7 +91,7 @@ if [ ${#MISSING_VARS[@]} -gt 0 ]; then
 ERROR: E2E_SERVER is required.
   Set it to the server alias key in ~/.claude/coolify.json (e.g. my-server).
   This alias points to your Coolify instance URL, API key, and SSH host.
-  Run /setup-coolify init in any Claude Code session to create or extend ~/.claude/coolify.json.
+  Run /setup-coolify init_cicd in any Claude Code session to create or extend ~/.claude/coolify.json.
 
   E2E_SERVER=my-server bash test/e2e.sh
 ERR
@@ -122,6 +122,17 @@ ERR
   exit 1
 fi
 
+# ── Run header (self-identifying in CI logs and bug reports) ───────────────────
+echo "═══════════════════════════════════════════════════════════════════════════════"
+echo " claude-skills-deploy e2e"
+echo "═══════════════════════════════════════════════════════════════════════════════"
+echo "  SERVER:      ${SERVER_ALIAS:-$E2E_SERVER}"
+echo "  BASE_DOMAIN: $E2E_BASE_DOMAIN"
+echo "  IMAGE:       $E2E_IMAGE"
+echo "  TIMESTAMP:   $TIMESTAMP"
+echo "═══════════════════════════════════════════════════════════════════════════════"
+echo ""
+
 # ── State (populated as test proceeds, used by cleanup) ────────────────────────
 
 WORK_DIR=""
@@ -132,6 +143,10 @@ DOPPLER_CREATED=false
 SSH_HOST=""
 PASS=0
 FAIL=0
+STEPS_PASSED=0
+STEPS_FAILED=0
+START_TIME=$(date +%s)
+STAGING_URL=""
 RESULTS=()
 REPORT_FILE=""
 DNS_PROVIDER=""
@@ -141,8 +156,8 @@ DNS_CREDENTIAL_SOURCE_E2E=""
 DNS_CREDENTIAL_KEY_E2E=""
 declare -a DNS_RECORDS=()
 
-pass() { PASS=$((PASS+1)); RESULTS+=("  ✓ $*"); echo "  ✓ $*"; }
-fail() { FAIL=$((FAIL+1)); RESULTS+=("  ✗ $*"); echo "  ✗ $*" >&2; }
+pass() { PASS=$((PASS+1)); STEPS_PASSED=$((STEPS_PASSED+1)); RESULTS+=("  ✓ $*"); echo "  ✓ $*"; }
+fail() { FAIL=$((FAIL+1)); STEPS_FAILED=$((STEPS_FAILED+1)); RESULTS+=("  ✗ $*"); echo "  ✗ $*" >&2; }
 step() { echo ""; echo "=== $* ==="; }
 
 # ── Report writer (called once from main body; cleanup() calls if not yet written) ─
@@ -256,6 +271,21 @@ PY
 cleanup() {
   local exit_code=$?
   write_report || true
+
+  # ── E2E Test Summary (CI-parseable KEY=value) ──────────────────────────────
+  echo ""
+  echo "# ── E2E Test Summary ──────────────────────────────────────────────────────────"
+  echo "STEPS_PASSED=${STEPS_PASSED}"
+  echo "STEPS_FAILED=${STEPS_FAILED}"
+  echo "ELAPSED=$(( $(date +%s) - START_TIME ))s"
+  echo "STAGING_URL=${STAGING_URL:-not-reached}"
+  if [ "${STEPS_FAILED}" -gt 0 ] || [ "${exit_code}" -ne 0 ]; then
+    echo "RESULT=FAIL"
+  else
+    echo "RESULT=PASS"
+  fi
+  echo "# ───────────────────────────────────────────────────────────────────────────"
+
   echo ""
   echo "═══════════════════════════════════"
   echo " Test Results"
@@ -563,7 +593,7 @@ for cfg in stg prd; do
   echo "  secrets set in: $TEST_PROJECT/$cfg (HELLO, E2E_TEST)"
 done
 
-pass "Doppler project ready (staging + production configs with dummy secrets)"
+pass "Doppler project ready (stg + prd configs with dummy secrets)"
 
 # ── Step 3: Generate coolify.yaml ─────────────────────────────────────────────
 
@@ -571,6 +601,7 @@ step "Step 3: Generate test coolify.yaml"
 
 STAGING_DOMAIN="${TEST_PROJECT}-staging.${E2E_BASE_DOMAIN}"
 PROD_DOMAIN="${TEST_PROJECT}-production.${E2E_BASE_DOMAIN}"
+STAGING_URL="https://${STAGING_DOMAIN}"
 YAML_PATH="$WORK_DIR/coolify.yaml"
 
 # Read dns_default from coolify.json for the test server alias (optional).
