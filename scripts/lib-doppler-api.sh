@@ -2,8 +2,12 @@
 # lib-doppler-api.sh — Doppler CLI wrapper.
 # Source this from other scripts. Do not execute directly.
 #
-# Note: Doppler CLI v3.76.0 has no --account flag. The token itself scopes
-# the workspace. DOPPLER_ACCOUNT is retained for reference/logging only.
+# Workspace selection: The Doppler CLI uses the DOPPLER_TOKEN env var to scope
+# all commands to a specific workspace. doppler_load_account reads this token
+# from ~/.claude/coolify.json (servers.<alias>.doppler_token) and exports it so
+# every subsequent doppler_cmd call targets the correct Doppler workspace for the
+# given server alias. Without this, the CLI falls back to the ambient interactive
+# login, which may be a different workspace than intended.
 
 set -euo pipefail
 
@@ -14,16 +18,28 @@ doppler_load_account() {
   if [ ! -f "$COOLIFY_REGISTRY" ]; then
     echo "ERROR: $COOLIFY_REGISTRY not found." >&2; return 1
   fi
-  DOPPLER_ACCOUNT=$(python3 -c "
-import json,sys
-d=json.load(open('$COOLIFY_REGISTRY'))
-print(d.get('servers',{}).get('$server_alias',{}).get('doppler_account',''))
+
+  local _acct _tok
+  read -r _acct _tok < <(python3 -c "
+import json, sys
+d = json.load(open('$COOLIFY_REGISTRY'))
+s = d.get('servers', {}).get('$server_alias', {})
+print(s.get('doppler_account', ''), s.get('doppler_token', ''))
 ")
-  if [ -z "$DOPPLER_ACCOUNT" ]; then
+
+  if [ -z "$_acct" ]; then
     echo "ERROR: server '$server_alias' has no doppler_account field in $COOLIFY_REGISTRY" >&2
     return 1
   fi
+
+  DOPPLER_ACCOUNT="$_acct"
   export DOPPLER_ACCOUNT
+
+  # If a per-server Doppler token is stored, export it so the CLI uses the
+  # correct workspace for this server alias (overrides ambient interactive auth).
+  if [ -n "$_tok" ]; then
+    export DOPPLER_TOKEN="$_tok"
+  fi
 }
 
 doppler_cmd() {
