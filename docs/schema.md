@@ -129,7 +129,7 @@ after creation:
 chmod 0600 ~/.claude/coolify.json
 ```
 
-Use `/setup-coolify init` to populate this file interactively, or write it manually
+Use `/setup-coolify init_cicd` to populate this file interactively, or write it manually
 using the schema below.
 
 > **Note:** JSON has no comment syntax. This table IS the annotation — refer to it when
@@ -146,7 +146,7 @@ using the schema below.
 
 > **Important:** `ssh_host` is REQUIRED as of this skill release. Earlier Phase 7
 > implementations defaulted to `v_cicd_stream` when absent — that fallback has been
-> removed. Scripts will fail loudly if the field is missing. Run `/setup-coolify init`
+> removed. Scripts will fail loudly if the field is missing. Run `/setup-coolify init_cicd`
 > to populate this file interactively.
 
 ### Optional Fields per Server Entry
@@ -298,7 +298,7 @@ overwrite them on the next run.
 
 ### User-written fields (in `coolify.json`)
 
-All fields in `~/.claude/coolify.json` are user-written. Use `/setup-coolify init` to
+All fields in `~/.claude/coolify.json` are user-written. Use `/setup-coolify init_cicd` to
 populate interactively, or write the file manually.
 
 **Permissions:** `chmod 0600 ~/.claude/coolify.json` (file contains API keys).
@@ -354,7 +354,7 @@ absence as the defaults. Only set these for repos where the app is not at root.
 Required in `~/.claude/coolify.json` server entries as of this skill release. Phase 7
 implementations defaulted to `v_cicd_stream` when absent — this fallback has been
 removed. Update your `~/.claude/coolify.json` to add `"ssh_host": "<alias>"` to each
-server entry. The `/setup-coolify init` interactive flow now prompts for this value.
+server entry. The `/setup-coolify init_cicd` interactive flow now prompts for this value.
 
 ### `server_name` (added in Phase 1 bug fixes)
 

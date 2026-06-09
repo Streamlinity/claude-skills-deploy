@@ -79,8 +79,8 @@ the existing entry — multiple server entries coexist in the same file:
 chmod 0600 ~/.claude/coolify.json
 ```
 
-Or use the interactive flow: `/setup-coolify init` — it merges the new entry without
-overwriting existing ones.
+Or use the interactive flow: `/setup-coolify init_cicd` — it merges the new entry without
+overwriting existing ones, and validates existing credentials first.
 
 ### Step 3 — Add the SSH alias to ~/.ssh/config
 

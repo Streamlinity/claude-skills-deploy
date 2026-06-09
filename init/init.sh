@@ -203,8 +203,39 @@ echo ""
 echo "WROTE ./coolify.yaml"
 echo "WROTE ./.github/workflows/deploy.yml"
 echo ""
+
+# ── .env.local seeding (optional) ───────────────────────────────────────
+if [ -f "./.env.local" ]; then
+  echo "Found .env.local — seed dev and stg Doppler configs? [Y/n]"
+  read -r SEED_ANSWER
+  SEED_ANSWER="${SEED_ANSWER:-Y}"
+  if [[ "$SEED_ANSWER" =~ ^[Yy]$ ]]; then
+    echo "Seeding dev config from .env.local..."
+    while IFS= read -r line || [ -n "$line" ]; do
+      # Skip blank lines and comments
+      [[ -z "$line" || "$line" == \#* ]] && continue
+      # Expect KEY=VALUE or KEY="VALUE"
+      if [[ "$line" =~ ^([A-Za-z_][A-Za-z0-9_]*)=(.*)$ ]]; then
+        key="${BASH_REMATCH[1]}"
+        val="${BASH_REMATCH[2]}"
+        # Strip surrounding quotes if present
+        val="${val#\"}" ; val="${val%\"}"
+        val="${val#\'}"  ; val="${val%\'}"
+        doppler secrets set "${key}=${val}" --project "$DOPPLER_PROJECT" --config dev >/dev/null
+        doppler secrets set "${key}=${val}" --project "$DOPPLER_PROJECT" --config stg >/dev/null
+        echo "  seeded $key -> dev, stg"
+      fi
+    done < "./.env.local"
+    echo "Done seeding."
+  else
+    echo "Skipping .env.local seeding — you can seed manually later:"
+    echo "  doppler secrets set KEY=value --project $DOPPLER_PROJECT --config dev"
+    echo "  doppler secrets set KEY=value --project $DOPPLER_PROJECT --config stg"
+  fi
+fi
+
 echo "Next steps (credentials only — no more files to generate):"
-echo "  1. If '$SERVER' is a new Coolify server, run: /setup-coolify init"
+echo "  1. If '$SERVER' is a new Coolify server, run: /setup-coolify init_cicd"
 echo "     (configures ~/.claude/coolify.json with url, api_key, doppler_account, ssh_host)"
 echo "  2. Create the Doppler project '$DOPPLER_PROJECT' with stg + prd configs"
 echo "     (browser flow — requires Doppler dashboard access)."

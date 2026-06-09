@@ -46,17 +46,19 @@ KEEP_ON_EXIT=false
 E2E_SERVER="${E2E_SERVER:-}"
 E2E_BASE_DOMAIN="${E2E_BASE_DOMAIN:-}"
 SERVER_ALIAS=""
-# E2E_IMAGE: Docker image to deploy as the test fixture.
-#            Default: ghcr.io/streamlinity/csd-hello-world:latest — a public,
-#            domain-neutral image published by the repo maintainer (Streamlinity).
-#            It serves HTTP 200 on /api/health and a known sentinel string
-#            ("claude-skills-deploy-e2e-ok") on /, which is what the smoke test
-#            in Step 9 looks for.
-#            To use your own test image, see test/hello-world/ for the source
-#            and test/push-hello-world.sh for the build+push helper. Your image
-#            must listen on port 3000, serve /api/health → 200, and be pullable
-#            by the Coolify VPS (public or pre-authenticated in the Coolify UI).
-E2E_IMAGE="${E2E_IMAGE:-ghcr.io/streamlinity/csd-hello-world:latest}"
+# E2E_IMAGE: Required. Docker image to deploy as the test fixture.
+#            The image must listen on port 3000, serve /api/health → HTTP 200,
+#            and return a page containing the sentinel string
+#            "claude-skills-deploy-e2e-ok" on /, which the smoke test in
+#            Step 9 looks for.
+#            The default image is maintained by the repo maintainer and is
+#            domain-neutral — you may provide your own.
+#            To build your own: see test/hello-world/ for the source and
+#            test/push-hello-world.sh for the build+push helper (set GHCR_ORG
+#            to your GitHub org/username). The image must be pullable by the
+#            Coolify VPS (public image or GHCR PAT pre-authenticated in the UI).
+#            Example: E2E_IMAGE=ghcr.io/my-org/csd-hello-world:latest bash test/e2e.sh
+E2E_IMAGE="${E2E_IMAGE:-}"
 DEPLOY_TIMEOUT=180    # seconds to wait for Coolify deploy to finish
 SMOKE_TIMEOUT=120     # seconds to wait for HTTPS smoke test (cert issuance takes ~30-60s)
 
@@ -78,6 +80,9 @@ fi
 if [ -z "$E2E_BASE_DOMAIN" ]; then
   MISSING_VARS+=(E2E_BASE_DOMAIN)
 fi
+if [ -z "$E2E_IMAGE" ]; then
+  MISSING_VARS+=(E2E_IMAGE)
+fi
 if [ ${#MISSING_VARS[@]} -gt 0 ]; then
   for v in "${MISSING_VARS[@]}"; do
     case "$v" in
@@ -86,7 +91,7 @@ if [ ${#MISSING_VARS[@]} -gt 0 ]; then
 ERROR: E2E_SERVER is required.
   Set it to the server alias key in ~/.claude/coolify.json (e.g. my-server).
   This alias points to your Coolify instance URL, API key, and SSH host.
-  Run /setup-coolify init in any Claude Code session to create or extend ~/.claude/coolify.json.
+  Run /setup-coolify init_cicd in any Claude Code session to create or extend ~/.claude/coolify.json.
 
   E2E_SERVER=my-server bash test/e2e.sh
 ERR
@@ -101,10 +106,32 @@ ERROR: E2E_BASE_DOMAIN is required.
   E2E_BASE_DOMAIN=ci.example.com bash test/e2e.sh
 ERR
         ;;
+      E2E_IMAGE)
+        cat >&2 <<'ERR'
+ERROR: E2E_IMAGE is required.
+  Set it to the Docker image to deploy as the test fixture. The image must
+  listen on port 3000, serve /api/health -> HTTP 200, and contain the string
+  "claude-skills-deploy-e2e-ok" on the root path (/ or index.html).
+  See test/hello-world/ for the source and test/push-hello-world.sh to build.
+
+  E2E_IMAGE=ghcr.io/my-org/csd-hello-world:latest bash test/e2e.sh
+ERR
+        ;;
     esac
   done
   exit 1
 fi
+
+# ── Run header (self-identifying in CI logs and bug reports) ───────────────────
+echo "═══════════════════════════════════════════════════════════════════════════════"
+echo " claude-skills-deploy e2e"
+echo "═══════════════════════════════════════════════════════════════════════════════"
+echo "  SERVER:      ${SERVER_ALIAS:-$E2E_SERVER}"
+echo "  BASE_DOMAIN: $E2E_BASE_DOMAIN"
+echo "  IMAGE:       $E2E_IMAGE"
+echo "  TIMESTAMP:   $TIMESTAMP"
+echo "═══════════════════════════════════════════════════════════════════════════════"
+echo ""
 
 # ── State (populated as test proceeds, used by cleanup) ────────────────────────
 
@@ -116,6 +143,10 @@ DOPPLER_CREATED=false
 SSH_HOST=""
 PASS=0
 FAIL=0
+STEPS_PASSED=0
+STEPS_FAILED=0
+START_TIME=$(date +%s)
+STAGING_URL=""
 RESULTS=()
 REPORT_FILE=""
 DNS_PROVIDER=""
@@ -125,8 +156,8 @@ DNS_CREDENTIAL_SOURCE_E2E=""
 DNS_CREDENTIAL_KEY_E2E=""
 declare -a DNS_RECORDS=()
 
-pass() { PASS=$((PASS+1)); RESULTS+=("  ✓ $*"); echo "  ✓ $*"; }
-fail() { FAIL=$((FAIL+1)); RESULTS+=("  ✗ $*"); echo "  ✗ $*" >&2; }
+pass() { PASS=$((PASS+1)); STEPS_PASSED=$((STEPS_PASSED+1)); RESULTS+=("  ✓ $*"); echo "  ✓ $*"; }
+fail() { FAIL=$((FAIL+1)); STEPS_FAILED=$((STEPS_FAILED+1)); RESULTS+=("  ✗ $*"); echo "  ✗ $*" >&2; }
 step() { echo ""; echo "=== $* ==="; }
 
 # ── Report writer (called once from main body; cleanup() calls if not yet written) ─
@@ -240,6 +271,21 @@ PY
 cleanup() {
   local exit_code=$?
   write_report || true
+
+  # ── E2E Test Summary (CI-parseable KEY=value) ──────────────────────────────
+  echo ""
+  echo "# ── E2E Test Summary ──────────────────────────────────────────────────────────"
+  echo "STEPS_PASSED=${STEPS_PASSED}"
+  echo "STEPS_FAILED=${STEPS_FAILED}"
+  echo "ELAPSED=$(( $(date +%s) - START_TIME ))s"
+  echo "STAGING_URL=${STAGING_URL:-not-reached}"
+  if [ "${STEPS_FAILED}" -gt 0 ] || [ "${exit_code}" -ne 0 ]; then
+    echo "RESULT=FAIL"
+  else
+    echo "RESULT=PASS"
+  fi
+  echo "# ───────────────────────────────────────────────────────────────────────────"
+
   echo ""
   echo "═══════════════════════════════════"
   echo " Test Results"
@@ -484,6 +530,7 @@ print(d.get('servers',{}).get('$SERVER_ALIAS',{}).get('ssh_host',''))
 [ -n "$SSH_HOST" ] || { echo "MISSING: ssh_host in coolify.json servers.$SERVER_ALIAS" >&2; exit 1; }
 
 echo "  server alias:    $SERVER_ALIAS → $COOLIFY_URL"
+echo "  base domain:     $E2E_BASE_DOMAIN"
 echo "  doppler account: $DOPPLER_ACCOUNT"
 echo "  ssh host:        $SSH_HOST"
 echo "  test project:    $TEST_PROJECT"
@@ -546,7 +593,7 @@ for cfg in stg prd; do
   echo "  secrets set in: $TEST_PROJECT/$cfg (HELLO, E2E_TEST)"
 done
 
-pass "Doppler project ready (staging + production configs with dummy secrets)"
+pass "Doppler project ready (stg + prd configs with dummy secrets)"
 
 # ── Step 3: Generate coolify.yaml ─────────────────────────────────────────────
 
@@ -554,6 +601,7 @@ step "Step 3: Generate test coolify.yaml"
 
 STAGING_DOMAIN="${TEST_PROJECT}-staging.${E2E_BASE_DOMAIN}"
 PROD_DOMAIN="${TEST_PROJECT}-production.${E2E_BASE_DOMAIN}"
+STAGING_URL="https://${STAGING_DOMAIN}"
 YAML_PATH="$WORK_DIR/coolify.yaml"
 
 # Read dns_default from coolify.json for the test server alias (optional).

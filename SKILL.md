@@ -1,8 +1,8 @@
 ---
 name: setup-coolify
-description: This skill should be used when the user runs /setup-coolify, /setup-coolify init, or /setup-coolify validate. Provisions and updates a Coolify deployment for the current repo from coolify.yaml, configures Doppler secret injection (all env_vars including NEXT_PUBLIC_* injected at runtime via DOPPLER_TOKEN — same-image promotion model), and generates .github/workflows/deploy.yml. Reads coolify.yaml from the working directory and credentials from ~/.claude/coolify.json. Designed to work across multiple repos and multiple Coolify servers via the server alias in coolify.yaml.
+description: This skill should be used when the user runs /setup-coolify, /setup-coolify init_cicd, /setup-coolify init_app, or /setup-coolify validate. Provisions and updates a Coolify deployment for the current repo from coolify.yaml, configures Doppler secret injection (all env_vars including NEXT_PUBLIC_* injected at runtime via DOPPLER_TOKEN — same-image promotion model), and generates .github/workflows/deploy.yml. Reads coolify.yaml from the working directory and credentials from ~/.claude/coolify.json. Designed to work across multiple repos and multiple Coolify servers via the server alias in coolify.yaml.
 disable-model-invocation: true
-argument-hint: "[init | validate | (blank = provision)]"
+argument-hint: "[init_cicd | init_app | validate | (blank = provision)]"
 allowed-tools: Read Write Bash
 ---
 
@@ -19,7 +19,8 @@ alias in `coolify.yaml` selects both the Coolify URL and the Doppler account.
 | Form | Action |
 |------|--------|
 | `/setup-coolify` | Provision/update: ensures Doppler keys exist, upserts staging + production Coolify apps, syncs env vars, mounts Doppler-fallback volume, triggers initial deploy. Idempotent. |
-| `/setup-coolify init` | Interactive setup of `~/.claude/coolify.json` for a new server alias. Prompts for url, api_key, doppler_account. |
+| `/setup-coolify init_cicd` | Interactive setup of `~/.claude/coolify.json` for a new server alias. Prompts for url, api_key, doppler_account, ssh_host. Validates existing credentials before prompting for replacement. |
+| `/setup-coolify init_app` | Bootstraps `coolify.yaml` and `.github/workflows/deploy.yml` in the current repo. Prompts for project name, server alias, domains, env vars, and optional deploy_server/deploy_ssh_host. Seeds dev+stg Doppler configs from `.env.local` when present. |
 | `/setup-coolify validate` | Dry-run: checks that all `env_vars` keys in coolify.yaml exist in Doppler staging AND production configs; verifies Coolify API reachability. No mutations. |
 
 ## Secrets injection model (same-image promotion)
@@ -62,15 +63,30 @@ annotation to change provisioning behaviour today.
 
 6. **Done.** `provision.sh` does NOT trigger an initial deploy. The first deploy is fired by pushing to `main`, which activates the generated `.github/workflows/deploy.yml` (build → GHCR → deploy-staging → smoke-test → deploy-production). To redeploy manually, push any commit to `main` or trigger the workflow from the GitHub Actions UI.
 
-## init flow
+## init_cicd flow
 
-Interactive prompts:
+Interactive prompts (server credential collection):
 - Server alias to add (string, e.g. `my-server`)
 - Coolify URL (e.g. `https://coolify.example.com`)
 - API key (paste — token displayed once in Coolify UI)
 - Doppler account name (e.g. `my-doppler-account`)
+- SSH host alias (e.g. `my-vps`)
+
+If the alias already exists in `~/.claude/coolify.json`, validates existing credentials first (Coolify API ping + `doppler whoami`). Prompts to replace only if validation fails.
 
 Merge into `~/.claude/coolify.json` (preserve existing servers). `chmod 0600`.
+
+## init_app flow
+
+Run from the target repo root (`bash ~/.claude/skills/setup-coolify/init/init.sh`). Writes `./coolify.yaml` and `.github/workflows/deploy.yml`.
+
+Interactive prompts:
+- Project name, server alias, Doppler project, registry image, staging/production domains
+- DNS provider (cloudflare/none) and optional DNS zone + credential config
+- Optional deploy_server (Coolify-registered server name) and build context/Dockerfile
+- Env var keys
+
+After writing files, detects `.env.local` and offers to seed `dev` and `stg` Doppler configs from it.
 
 ## validate flow
 

@@ -101,6 +101,28 @@ print(', '.join(s.get('name','') for s in srvs if s.get('name')))
   fi
 fi
 
+# P04 gap: when deploy_server is absent, verify the effective Coolify server ("localhost" or
+# server_name from coolify.json) is registered — provision.sh hard-fails if it is missing.
+if [ -z "${DEPLOY_SERVER:-}" ]; then
+  EFFECTIVE_SERVER=$(python3 -c "
+import json
+d=json.load(open('$HOME/.claude/coolify.json'))
+print(d.get('servers',{}).get('$SERVER',{}).get('server_name','localhost'))
+")
+  EFFECTIVE_UUID=$(coolify_get_server_uuid "$EFFECTIVE_SERVER")
+  if [ -z "$EFFECTIVE_UUID" ]; then
+    AVAILABLE=$(coolify_curl GET "/servers" 2>/dev/null | python3 -c "
+import json,sys
+try: srvs=json.load(sys.stdin)
+except: sys.exit(0)
+print(', '.join(s.get('name','') for s in srvs if s.get('name')))
+" 2>/dev/null || echo "<unable to list>")
+    fail "INVALID:coolify.json:server_name '$EFFECTIVE_SERVER' not found in Coolify (available: $AVAILABLE) — set server_name in coolify.json servers.$SERVER or register the server in Coolify"
+  else
+    echo "validate: effective Coolify server '$EFFECTIVE_SERVER' -> uuid=$EFFECTIVE_UUID OK"
+  fi
+fi
+
 # MSRV-07: deploy_server and deploy_ssh_host must be specified together or skipped together.
 DEPLOY_SSH_HOST_CHECK=$(python3 -c "
 import json
@@ -126,6 +148,43 @@ if [ -z "${DEPLOY_SERVER:-}" ] && [ -n "$DEPLOY_SSH_HOST_CHECK" ]; then
 fi
 if [ -n "${DEPLOY_SERVER:-}" ] && [ -n "$DEPLOY_SSH_HOST_CHECK" ]; then
   echo "validate: deploy_server + deploy_ssh_host coupling OK"
+fi
+
+# P07/P08 gap: validate deploy_vps_ip from coolify.json if statically configured.
+# provision.sh hard-fails (P07) when it cannot resolve the VPS IP after all 4 steps;
+# it also hard-fails (P08) when the resolved value is not a valid IPv4 address.
+DEPLOY_VPS_IP_CHECK=$(python3 -c "
+import json
+d=json.load(open('$HOME/.claude/coolify.json'))
+print(d.get('servers',{}).get('$SERVER',{}).get('deploy_vps_ip',''))
+")
+if [ -n "$DEPLOY_VPS_IP_CHECK" ]; then
+  if ! python3 -c "
+import re,sys
+ip=sys.argv[1]
+oct_re=r'(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)'
+if not re.fullmatch(rf'{oct_re}\.{oct_re}\.{oct_re}\.{oct_re}',ip):
+    sys.exit(1)
+" "$DEPLOY_VPS_IP_CHECK" 2>/dev/null; then
+    fail "INVALID:coolify.json:servers.$SERVER.deploy_vps_ip '$DEPLOY_VPS_IP_CHECK' is not a valid IPv4 address"
+  else
+    echo "validate: deploy_vps_ip $DEPLOY_VPS_IP_CHECK (static) — format OK"
+  fi
+else
+  echo "validate: deploy_vps_ip not static — will be resolved at provision time"
+fi
+
+# P12 gap: probe SSH connectivity to the effective deploy host before any Coolify mutations.
+# provision.sh calls ssh to create Docker volumes and may resolve IPs via SSH; an unreachable
+# host causes a mid-run abort that leaves Coolify in a partially-provisioned state.
+EFFECTIVE_SSH_HOST="${DEPLOY_SSH_HOST_CHECK:-$SSH_HOST_CHECK}"
+if [ -n "$EFFECTIVE_SSH_HOST" ]; then
+  if ! ssh -q -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=no \
+       "$EFFECTIVE_SSH_HOST" true 2>/dev/null; then
+    fail "INVALID:ssh:$EFFECTIVE_SSH_HOST unreachable or authentication failed (check ~/.ssh/config, keys, and server firewall)"
+  else
+    echo "validate: SSH probe to '$EFFECTIVE_SSH_HOST' OK"
+  fi
 fi
 
 # Verify every env_vars key exists in BOTH staging and production with non-placeholder values

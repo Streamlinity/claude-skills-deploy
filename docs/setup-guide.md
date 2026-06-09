@@ -33,7 +33,7 @@ Skip the manual per-app records below. Instead:
 1. Create a Cloudflare API token at `https://dash.cloudflare.com/profile/api-tokens`
    with **Zone: DNS: Edit** permission scoped to your target zone. Copy the token.
 
-2. Store it in Doppler (staging config — DNS credentials are shared across environments):
+2. Store it in Doppler (`stg` config — DNS credentials are shared across environments):
    ```bash
    doppler secrets set CLOUDFLARE_API_TOKEN --project <your-project> --config stg
    ```
@@ -240,9 +240,9 @@ Create (or update) `~/.claude/coolify.json` with your server entry. You can writ
 **Option A: Interactive Flow (Recommended)**
 Run:
 ```bash
-/setup-coolify init
+/setup-coolify init_cicd
 ```
-This prompts you for the server alias, URL, API key, Doppler account, and SSH host, then merges the new entry into `~/.claude/coolify.json` and automatically sets the correct permissions.
+This prompts you for the server alias, URL, API key, Doppler account, and SSH host, then merges the new entry into `~/.claude/coolify.json` and automatically sets the correct permissions. If the alias already exists, it validates existing credentials first and only re-prompts on failure.
 
 **Option B: Manual Setup**
 Create the file at `~/.claude/coolify.json` using this format (see **[docs/schema.md](./schema.md#coolifyjson--machine-local-credentials)** for the canonical field reference and detailed description of each property):
