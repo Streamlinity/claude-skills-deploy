@@ -16,7 +16,15 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-GHCR_ORG="${GHCR_ORG:-streamlinity}"
+GHCR_ORG="${GHCR_ORG:-}"
+if [ -z "$GHCR_ORG" ]; then
+  cat >&2 <<'ERR'
+ERROR: GHCR_ORG is required.
+  Set it to your GitHub org or username that owns the GHCR package.
+  Example: GHCR_ORG=my-org bash test/push-hello-world.sh
+ERR
+  exit 1
+fi
 IMAGE="ghcr.io/${GHCR_ORG}/csd-hello-world"
 TAG="${TAG:-latest}"
 
