@@ -63,17 +63,37 @@ the existing entry — multiple server entries coexist in the same file:
       "url": "https://coolify.cicd.streamlinity.com",
       "api_key": "<existing streamlinity key>",
       "doppler_account": "streamlinity",
-      "ssh_host": "v_cicd_stream"
+      "doppler_token": "dp.pt.<streamlinity-personal-token>",
+      "ssh_host": "v_cicd_stream",
+      "cloudflare_api_token": "cfut_<streamlinity-cf-token>",
+      "dns_default": {
+        "provider": "cloudflare",
+        "zone_name": "streamlinity.com",
+        "credential_source": "coolify_json",
+        "credential_key": "cloudflare_api_token"
+      }
     },
     "hetzner-strategem": {
       "url": "https://coolify.cicd.strategem.ai",
       "api_key": "<from strategem Coolify UI>",
-      "doppler_account": "strategem",
-      "ssh_host": "hetzner-strategem"
+      "doppler_account": "StrategemAI",
+      "doppler_token": "dp.pt.<strategem-personal-token>",
+      "ssh_host": "hetzner-strategem",
+      "cloudflare_api_token": "cfut_<strategem-cf-token>",
+      "dns_default": {
+        "provider": "cloudflare",
+        "zone_name": "strategem.ai",
+        "credential_source": "coolify_json",
+        "credential_key": "cloudflare_api_token"
+      }
     }
   }
 }
 ```
+
+> **`doppler_token`** scopes all Doppler CLI calls to the correct workspace — essential when the two server entries belong to different Doppler organizations. Without it the CLI falls back to ambient interactive auth and may silently target the wrong workspace. Obtain from Doppler → Settings → Service Tokens or your profile page.
+>
+> `/setup-coolify validate` prints `WARN:` lines for any of these optional fields that are absent, and instructs you to re-run `/setup-coolify init_cicd` to fill them.
 
 ```bash
 chmod 0600 ~/.claude/coolify.json

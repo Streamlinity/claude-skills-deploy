@@ -247,7 +247,7 @@ This prompts you for the server alias, URL, API key, Doppler account, and SSH ho
 **Option B: Manual Setup**
 Create the file at `~/.claude/coolify.json` using this format (see **[docs/schema.md](./schema.md#coolifyjson--machine-local-credentials)** for the canonical field reference and detailed description of each property):
 
-Concrete example for the reference implementation (with optional DNS fields):
+Concrete example for the reference implementation (with all optional fields):
 ```json
 {
   "servers": {
@@ -255,6 +255,7 @@ Concrete example for the reference implementation (with optional DNS fields):
       "url": "https://coolify.cicd.streamlinity.com",
       "api_key": "xOIN...",
       "doppler_account": "streamlinity",
+      "doppler_token": "dp.pt.REDACTED",
       "ssh_host": "v_cicd_stream",
       "cloudflare_api_token": "cfut_...",
       "dns_default": {
@@ -268,7 +269,12 @@ Concrete example for the reference implementation (with optional DNS fields):
 }
 ```
 
-The `cloudflare_api_token` and `dns_default` fields are optional. Add them if you want automated DNS provisioning. `dns_default` is also read by `test/e2e.sh` to inject a `dns:` block into E2E test runs, so DNS record creation and cleanup are exercised automatically during testing. See [docs/schema.md](./schema.md) for the full field reference.
+- **`doppler_token`** — Personal or service token for the Doppler workspace. When set, `validate.sh` and `provision.sh` export it as `DOPPLER_TOKEN` so all Doppler CLI calls target the correct workspace. Strongly recommended for multi-workspace setups. Without it the CLI falls back to ambient interactive auth and may silently target the wrong workspace.
+- **`cloudflare_api_token`** and **`dns_default`** — Optional. Add them if you want automated DNS provisioning. `dns_default` is also read by `test/e2e.sh` to inject a `dns:` block into E2E test runs automatically.
+
+See [docs/schema.md](./schema.md) for the full field reference.
+
+> **Keeping this file current:** As the skill evolves, new optional fields are added. Run `/setup-coolify validate` after updating the skill — it prints `WARN:` lines for missing optional fields. Re-run `/setup-coolify init_cicd` to fill them interactively.
 
 **Secure the file immediately:**
 ```bash
@@ -392,7 +398,10 @@ Edit these to match your app before running `/setup-coolify`. Getting them wrong
 
 After the bootstrapper completes, validate and provision:
 ```bash
-/setup-coolify validate    # dry-run: checks Doppler keys + Coolify API
+/setup-coolify validate    # dry-run: checks Doppler keys + Coolify API; auto-fills missing
+                           # Doppler keys from .env.local (dev/stg) or .env.production (prd)
+                           # if those files are present; prints WARN: for missing coolify.json
+                           # optional fields without blocking
 /setup-coolify             # provisions staging + production apps (idempotent)
 ```
 

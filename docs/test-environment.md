@@ -111,16 +111,17 @@ Requires a GitHub PAT with `write:packages, read:packages, delete:packages` scop
 docker pull ghcr.io/streamlinity/csd-hello-world:latest
 ```
 
-### 4. Required environment variables
+### 4. Required parameters
 
-The test requires two environment variables. Both have no default — the test will print
-a specific error and exit if either is missing.
+The server alias is required and must be passed explicitly — the test will not guess which server to use. Pass it via the `--server` flag (canonical) or the `E2E_SERVER` env var (CI-friendly alternative).
 
-| Variable | Required | Description | Example |
-|----------|----------|-------------|---------|
-| `E2E_SERVER` | Yes | Server alias key from `~/.claude/coolify.json` | `vultr-stream` |
-| `E2E_BASE_DOMAIN` | Yes | Base domain for test subdomains. Must be covered by a wildcard DNS A record pointing at the VPS. | `cicd.streamlinity.com` |
-| `E2E_IMAGE` | No | Docker image to deploy. Defaults to `ghcr.io/streamlinity/csd-hello-world:latest`. Override to use your fork's image. | `ghcr.io/my-org/csd-hello-world:latest` |
+| Parameter | How to pass | Description | Example |
+|-----------|-------------|-------------|---------|
+| Server alias | `--server <alias>` flag **(preferred)** or `E2E_SERVER=<alias>` env var | Alias key from `~/.claude/coolify.json`. Determines the Coolify instance, Doppler workspace, SSH host, and DNS credentials used for the test run. Explicit by design — each alias targets a different set of infrastructure. | `--server vultr-stream` |
+| `E2E_BASE_DOMAIN` | env var (required) | Base domain for test subdomains. Must be covered by a wildcard DNS A record pointing at the VPS, or `dns_default` must be set in `coolify.json` for the server alias. | `cicd.streamlinity.com` |
+| `E2E_IMAGE` | env var (optional) | Docker image to deploy. Defaults to `ghcr.io/streamlinity/csd-hello-world:latest`. Override to use your fork's image. | `ghcr.io/my-org/csd-hello-world:latest` |
+
+When `--server` is omitted and `E2E_SERVER` is not set, the test prints all available server aliases from `~/.claude/coolify.json` and exits with a clear error.
 
 ---
 
@@ -129,27 +130,49 @@ a specific error and exit if either is missing.
 ### Phase 1: Run
 
 ```bash
-E2E_SERVER=<alias> E2E_BASE_DOMAIN=<base-domain> bash test/e2e.sh
+bash test/e2e.sh --server <alias> E2E_BASE_DOMAIN=<base-domain>
 ```
 
-For the reference implementation:
+For the reference implementations:
 ```bash
+# Streamlinity (Vultr)
+bash test/e2e.sh --server vultr-stream E2E_BASE_DOMAIN=cicd.streamlinity.com
+
+# Strategem (Hetzner)
+bash test/e2e.sh --server strategem-coolify E2E_BASE_DOMAIN=cicd.strategem.ai
+```
+
+Flags:
+```bash
+bash test/e2e.sh --server vultr-stream --no-cleanup   # leave resources running for inspection after success or failure
+bash test/e2e.sh --server vultr-stream --keep         # alias for --no-cleanup (backward compat)
+# E2E_SERVER env var is also accepted for CI pipelines:
 E2E_SERVER=vultr-stream E2E_BASE_DOMAIN=cicd.streamlinity.com bash test/e2e.sh
 ```
 
-Flag equivalents:
-```bash
-bash test/e2e.sh --server vultr-stream           # same as E2E_SERVER=
-bash test/e2e.sh --server vultr-stream --keep    # skip teardown on failure (debug mode)
-```
-
 The test takes 3–5 minutes. It prints a step-by-step log and exits 0 on full success.
-At the end of a successful run, you will see:
+At the end of a successful run, you will see a structured completion banner:
 
 ```
-  Staging URL: https://csd-e2e-YYYYMMDDHHMMSS-staging.<base-domain>
-  Report:      test/results/YYYYMMDDHHMMSS.json
-  Next step:   bash test/cleanup-deployment.sh test/results/YYYYMMDDHHMMSS.json
+═══════════════════════════════════════════════════════════════════════════════
+ Deployment complete — inspect before cleaning up
+═══════════════════════════════════════════════════════════════════════════════
+
+  URLs
+  ────────────────────────────────────────────────────────────────────────────
+  Staging    : https://csd-hello-test-YYYYMMDDHHMMSS-staging.<base-domain>
+  Production : https://csd-hello-test-YYYYMMDDHHMMSS-production.<base-domain>
+
+  DNS records created
+  ────────────────────────────────────────────────────────────────────────────
+  TYPE  HOSTNAME                              TARGET         RECORD ID
+  ────  ────────────────────────────────────  ─────────────  ────────────────
+  A     csd-hello-test-...-staging.<base>     <vps-ip>       <record-id>
+  A     csd-hello-test-...-production.<base>  <vps-ip>       <record-id>
+
+  Cleanup
+  ────────────────────────────────────────────────────────────────────────────
+  bash test/cleanup-deployment.sh test/results/YYYYMMDDHHMMSS.json
 ```
 
 **What the test does internally:**
@@ -244,7 +267,7 @@ re-run against the same report if interrupted.
 
 | Symptom | Cause | Fix |
 |---------|-------|-----|
-| `ERROR: E2E_SERVER is required` | `E2E_SERVER` env var not set and `--server` flag not passed | Set `E2E_SERVER=<alias>` before the command, or use `--server <alias>` |
+| `ERROR: --server <alias> is required` | `--server` flag not passed and `E2E_SERVER` env var not set | Use `--server <alias>`. The error output lists all configured aliases from `~/.claude/coolify.json` to help you choose. |
 | `ERROR: E2E_BASE_DOMAIN is required` | `E2E_BASE_DOMAIN` env var not set | Set `E2E_BASE_DOMAIN=<base-domain>` — must match a wildcard DNS A record pointing at your VPS |
 | `test image not found or not pullable` | Hello-world image not yet pushed to GHCR | Run `bash test/push-hello-world.sh` or trigger the `push-test-image.yml` CI workflow |
 | Smoke test times out (>120s) | Container failed to start, or DNS not propagated | Check Coolify UI → app logs. Verify the base domain wildcard A record resolves from the VPS. |
