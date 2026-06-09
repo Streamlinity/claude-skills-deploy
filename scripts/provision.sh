@@ -305,35 +305,17 @@ print(json.dumps({
   [ -n "$DOPPLER_SVC_TOKEN" ] || { echo "ERROR: failed to create Doppler service token for $DOPPLER_PROJECT/$DOPPLER_ENV" >&2; exit 1; }
   echo "    TOKEN created: $TOKEN_NAME (scope: $DOPPLER_PROJECT/$DOPPLER_ENV)"
 
-  # 2e. Build env var payload: DOPPLER_TOKEN + every env_vars key from coolify.yaml
-  # All values are RUNTIME — fetched from Doppler at container start via ENTRYPOINT.
-  ENVS_JSON=$(python3 - "$DOPPLER_PROJECT" "$DOPPLER_ENV" "$DOPPLER_SVC_TOKEN" "$ENV_VARS" <<'PY'
-import json, subprocess, sys
-project, config, token, env_vars_str = sys.argv[1:5]
-env_vars = env_vars_str.split() if env_vars_str else []
-data = [{"key": "DOPPLER_TOKEN", "value": token, "is_preview": False}]
-failures = []
-for k in env_vars:
-    result = subprocess.run(
-        ["doppler", "secrets", "get", "--project", project, "--config", config, k, "--plain"],
-        capture_output=True, text=True
-    )
-    if result.returncode != 0:
-        failures.append((k, result.stderr.strip()))
-        continue
-    v = result.stdout.strip()
-    data.append({"key": k, "value": v, "is_preview": False})
-if failures:
-    sys.stderr.write(f"ERROR: doppler secrets get failed for {len(failures)} key(s) in {project}/{config}:\n")
-    for k, err in failures:
-        sys.stderr.write(f"ERROR: doppler secrets get {k} failed: {err}\n")
-    raise SystemExit(1)
-print(json.dumps(data))
-PY
-)
+  # 2e. Set DOPPLER_TOKEN on the Coolify app — this is the ONLY env var Coolify needs.
+  # The app's Dockerfile ENTRYPOINT runs `doppler run` which uses DOPPLER_TOKEN to
+  # fetch all actual secrets from Doppler at container start. Secret values never
+  # pass through Coolify — they stay exclusively in Doppler.
+  ENVS_JSON=$(python3 -c "
+import json, sys
+token = sys.argv[1]
+print(json.dumps([{'key': 'DOPPLER_TOKEN', 'value': token, 'is_preview': False}]))
+" "$DOPPLER_SVC_TOKEN")
   echo "$ENVS_JSON" | coolify_set_app_envs "$APP_UUID" >/dev/null
-  KEY_COUNT=$(echo "$ENVS_JSON" | python3 -c "import json,sys; print(len(json.load(sys.stdin)))")
-  echo "    ENVS synced ($KEY_COUNT keys including DOPPLER_TOKEN)"
+  echo "    ENVS synced (DOPPLER_TOKEN only — all other secrets fetched from Doppler at container start)"
 
   # 2f. Verify volume mount round-trip — HARD FAIL if PATCH did not persist
   ACTUAL_OPTS=$(coolify_curl GET "/applications/$APP_UUID" | python3 -c "import json,sys; print(json.load(sys.stdin).get('custom_docker_run_options','') or '')")

@@ -25,12 +25,12 @@ alias in `coolify.yaml` selects both the Coolify URL and the Doppler account.
 
 ## Secrets injection model (same-image promotion)
 
-All `env_vars` in `coolify.yaml` — including `NEXT_PUBLIC_*` keys — are set as
-**runtime** Coolify env vars whose values are pulled from Doppler at container
-start via `doppler run` (the Dockerfile ENTRYPOINT). The same Docker image is
-promoted from staging to production without a rebuild; the only thing that differs
-between the two app instances is the `DOPPLER_TOKEN` (scoped to the matching
-Doppler config).
+Coolify receives **only `DOPPLER_TOKEN`** — a service token scoped to the matching Doppler config (`stg` or `prd`). No other secret values are stored in or pass through Coolify. At container start, the Dockerfile ENTRYPOINT runs `doppler run` which uses `DOPPLER_TOKEN` to fetch all `env_vars` secrets directly from Doppler and inject them into the process environment.
+
+The same Docker image is promoted from staging to production without a rebuild; the only thing that differs between the two app instances is the `DOPPLER_TOKEN` (scoped to the matching Doppler config). This means:
+- **Staging** gets a service token for the `stg` Doppler config → all staging secrets
+- **Production** gets a service token for the `prd` Doppler config → all production secrets
+- Secret values never appear in the Coolify UI, API responses, or logs
 
 The `# build_time: true` trailing-comment annotation in `coolify.yaml` is
 **reserved for a future per-env build mode** and is NOT currently parsed by
@@ -54,7 +54,7 @@ annotation to change provisioning behaviour today.
 3. **Upsert staging app**
    - Compute name: `${PROJECT_NAME}-staging` (e.g. `skillmap-staging`).
    - `coolify_find_app_by_name` — if UUID returned, skip create. Else `POST /applications/private-github-app` with `source_type: registry` and `docker_registry_image_name: $REGISTRY_IMAGE`. PATCH `is_auto_deploy_enabled=false`.
-   - Source `lib-doppler-api.sh`. Create a service token scoped to `staging` config. Set `DOPPLER_TOKEN` env var on the app. Set every `env_vars` key on the app as a **runtime** env var (no build-time path under same-image promotion); values fetched from Doppler via `doppler --account <acct> secrets get --project <p> --config staging <KEY> --plain`.
+   - Source `lib-doppler-api.sh`. Create a service token scoped to `staging` config. Set **only `DOPPLER_TOKEN`** on the Coolify app — no other secret values are stored in Coolify. The app's Dockerfile ENTRYPOINT runs `doppler run` which uses `DOPPLER_TOKEN` to fetch all `env_vars` secrets directly from Doppler at container start.
    - SSH to the deployment VPS (`DEPLOY_SSH_HOST`) and run `docker volume create ${APP_UUID}-doppler-cache`. PATCH the app with `custom_docker_run_options: --mount source=${APP_UUID}-doppler-cache,target=/etc/doppler-cache`.
 
 4. **Upsert production app** (same flow, name = `${PROJECT_NAME}-production`)
