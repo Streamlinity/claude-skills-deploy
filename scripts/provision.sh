@@ -47,6 +47,28 @@ doppler_load_account "$SERVER_ALIAS"
 
 echo "provision: project=$PROJECT server=$SERVER_ALIAS ($COOLIFY_URL) doppler_account=$DOPPLER_ACCOUNT"
 
+# ── Pre-run deployment summary ─────────────────────────────────────────────────
+echo ""
+echo "═══════════════════════════════════════════════════════════════════════════════"
+echo " Provisioning plan"
+echo "═══════════════════════════════════════════════════════════════════════════════"
+echo ""
+echo "  Target"
+echo "  ────────────────────────────────────────────────────────────────────────────"
+echo "  Coolify server   : $SERVER_ALIAS → $COOLIFY_URL"
+echo "  Doppler account  : $DOPPLER_ACCOUNT"
+echo ""
+echo "  Apps to provision"
+echo "  ────────────────────────────────────────────────────────────────────────────"
+echo "  Staging app      : ${PROJECT}-staging"
+echo "  Production app   : ${PROJECT}-production"
+echo "  Image            : $REGISTRY_IMAGE"
+echo "  Staging domain   : https://$STAGING_DOMAIN"
+echo "  Production domain: https://$PROD_DOMAIN"
+echo "  Env vars         : $ENV_VARS"
+echo "═══════════════════════════════════════════════════════════════════════════════"
+echo ""
+
 # 1. Discover Coolify topology by name — no hardcoded UUIDs.
 PROJECT_UUID=$(coolify_upsert_project "$PROJECT" "Provisioned by /setup-coolify from $YAML_PATH")
 [ -n "$PROJECT_UUID" ] || { echo "ERROR: failed to resolve project UUID for '$PROJECT'" >&2; exit 1; }
@@ -348,3 +370,44 @@ echo "  WROTE back coolify_app_ids to $YAML_PATH"
 
 echo ""
 echo "DONE: ${PROJECT}-staging=${APP_UUIDS[staging]} ${PROJECT}-production=${APP_UUIDS[production]}"
+
+# ── Completion summary ─────────────────────────────────────────────────────────
+echo ""
+echo "═══════════════════════════════════════════════════════════════════════════════"
+echo " Provisioning complete"
+echo "═══════════════════════════════════════════════════════════════════════════════"
+echo ""
+echo "  Target"
+echo "  ────────────────────────────────────────────────────────────────────────────"
+echo "  Coolify server   : $SERVER_ALIAS → $COOLIFY_URL"
+echo "  Deploy server    : $DEPLOY_SERVER_NAME  (uuid: $DEPLOY_SERVER_UUID)"
+echo "  Doppler account  : $DOPPLER_ACCOUNT"
+echo "  SSH host         : $SSH_HOST"
+echo ""
+echo "  Apps"
+echo "  ────────────────────────────────────────────────────────────────────────────"
+echo "  Staging app      : ${PROJECT}-staging   (uuid: ${APP_UUIDS[staging]})"
+echo "  Production app   : ${PROJECT}-production (uuid: ${APP_UUIDS[production]})"
+echo "  Image            : $REGISTRY_IMAGE"
+echo ""
+echo "  Domains"
+echo "  ────────────────────────────────────────────────────────────────────────────"
+echo "  Staging    : https://$STAGING_DOMAIN"
+echo "  Production : https://$PROD_DOMAIN"
+if [ "$DNS_ENABLED" = true ]; then
+  echo ""
+  echo "  DNS records created"
+  echo "  ────────────────────────────────────────────────────────────────────────────"
+  echo "  Provider   : $DNS_PROVIDER  (zone: $DNS_ZONE_NAME)"
+  for ENV_NAME in staging production; do
+    case "$ENV_NAME" in
+      staging)    D="$STAGING_DOMAIN"; RID="${DNS_RECORD_IDS[staging]:-}" ;;
+      production) D="$PROD_DOMAIN";    RID="${DNS_RECORD_IDS[production]:-}" ;;
+    esac
+    echo "  A  $D → $DEPLOY_VPS_IP  (record_id: ${RID:-n/a})"
+  done
+else
+  echo ""
+  echo "  DNS records  : skipped (dns: block not configured or provider: none)"
+fi
+echo "═══════════════════════════════════════════════════════════════════════════════"

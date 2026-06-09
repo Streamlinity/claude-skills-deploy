@@ -71,10 +71,28 @@ Interactive prompts (server credential collection):
 - API key (paste — token displayed once in Coolify UI)
 - Doppler account name (e.g. `my-doppler-account`)
 - SSH host alias (e.g. `my-vps`)
+- Cloudflare API token (optional — leave blank if DNS is managed outside Cloudflare or manually). When provided, stored as `cloudflare_api_token` under the server entry. Token requires Zone:DNS:Edit scope. Also prompt for `dns_default` block: zone name (e.g. `example.com`) and credential key (`cloudflare_api_token`). This pre-populates the `dns:` block for future `coolify.yaml` generation and is used by `provision.sh` and `test/e2e.sh` to auto-create DNS A records.
 
 If the alias already exists in `~/.claude/coolify.json`, validates existing credentials first (Coolify API ping + `doppler whoami`). Prompts to replace only if validation fails.
 
 Merge into `~/.claude/coolify.json` (preserve existing servers). `chmod 0600`.
+
+Example resulting server entry:
+```json
+"my-server": {
+  "url": "https://coolify.example.com",
+  "api_key": "...",
+  "doppler_account": "MyOrg",
+  "ssh_host": "my-vps",
+  "cloudflare_api_token": "...",
+  "dns_default": {
+    "provider": "cloudflare",
+    "zone_name": "example.com",
+    "credential_source": "coolify_json",
+    "credential_key": "cloudflare_api_token"
+  }
+}
+```
 
 ## init_app flow
 

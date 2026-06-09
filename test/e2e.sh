@@ -10,10 +10,9 @@
 # removes them so each test starts from a clean slate.
 #
 # Usage:
-#   bash test/e2e.sh --server hetzner-strategem       # test against a specific server
-#   bash test/e2e.sh --no-cleanup                     # leave all resources running after test (canonical)
-#   bash test/e2e.sh --keep                           # alias for --no-cleanup; kept for backward compatibility
-#   E2E_SERVER=my-server bash test/e2e.sh             # REQUIRED — alias from ~/.claude/coolify.json
+#   bash test/e2e.sh --server strategem-coolify       # REQUIRED — alias from ~/.claude/coolify.json
+#   bash test/e2e.sh --server vultr-stream --no-cleanup  # leave all resources running after test
+#   bash test/e2e.sh --server vultr-stream --keep     # alias for --no-cleanup; kept for backward compatibility
 #   E2E_BASE_DOMAIN=ci.example.com bash test/e2e.sh   # REQUIRED — base domain for test URLs
 #   E2E_IMAGE=ghcr.io/my-org/my-hello:latest bash test/e2e.sh
 #
@@ -39,12 +38,8 @@ source "$SKILL_DIR/scripts/lib-dns-api.sh"
 TIMESTAMP=$(date +%Y%m%d%H%M%S)
 TEST_PROJECT="csd-hello-test-$(date +%Y%m%d-%H%M%S)"
 KEEP_ON_EXIT=false
-# E2E_SERVER:      Required. Coolify server alias key from ~/.claude/coolify.json
-#                  (an alias, NOT a raw hostname). The alias maps to the Coolify
-#                  instance URL, API key, Doppler account, and SSH host.
 # E2E_BASE_DOMAIN: Required. Base domain under which test app URLs are
 #                  constructed (e.g. ci.example.com → <project>-staging.ci.example.com).
-E2E_SERVER="${E2E_SERVER:-}"
 E2E_BASE_DOMAIN="${E2E_BASE_DOMAIN:-}"
 SERVER_ALIAS=""
 # E2E_IMAGE: Required. Docker image to deploy as the test fixture.
@@ -74,10 +69,16 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# ── Required env vars (no maintainer-specific defaults) ────────────────────────
+# ── Required args / env vars ───────────────────────────────────────────────────
+# --server is the canonical, explicit way to choose a target server.
+# E2E_SERVER env var is accepted as a CI-friendly alternative but is secondary.
+if [ -z "$SERVER_ALIAS" ] && [ -n "${E2E_SERVER:-}" ]; then
+  SERVER_ALIAS="$E2E_SERVER"
+fi
+
 MISSING_VARS=()
-if [ -z "$SERVER_ALIAS" ] && [ -z "$E2E_SERVER" ]; then
-  MISSING_VARS+=(E2E_SERVER)
+if [ -z "$SERVER_ALIAS" ]; then
+  MISSING_VARS+=(SERVER)
 fi
 if [ -z "$E2E_BASE_DOMAIN" ]; then
   MISSING_VARS+=(E2E_BASE_DOMAIN)
@@ -88,15 +89,41 @@ fi
 if [ ${#MISSING_VARS[@]} -gt 0 ]; then
   for v in "${MISSING_VARS[@]}"; do
     case "$v" in
-      E2E_SERVER)
-        cat >&2 <<'ERR'
-ERROR: E2E_SERVER is required.
-  Set it to the server alias key in ~/.claude/coolify.json (e.g. my-server).
-  This alias points to your Coolify instance URL, API key, and SSH host.
-  Run /setup-coolify init_cicd in any Claude Code session to create or extend ~/.claude/coolify.json.
-
-  E2E_SERVER=my-server bash test/e2e.sh
-ERR
+      SERVER)
+        echo "" >&2
+        echo "ERROR: --server <alias> is required." >&2
+        echo "" >&2
+        echo "  Specify which Coolify server to test against explicitly." >&2
+        echo "  Implicit server selection is not supported — each alias targets a different" >&2
+        echo "  Coolify instance, Doppler account, and SSH host." >&2
+        echo "" >&2
+        # List available aliases from ~/.claude/coolify.json to help the user choose
+        if [ -f "$HOME/.claude/coolify.json" ]; then
+          AVAIL=$(python3 -c "
+import json, sys
+try:
+    d = json.load(open('$HOME/.claude/coolify.json'))
+    aliases = list(d.get('servers', {}).keys())
+    if aliases:
+        for a in aliases:
+            s = d['servers'][a]
+            url = s.get('url', '')
+            print(f'    {a:<30}  {url}')
+    else:
+        print('    (none configured)')
+except Exception as e:
+    print(f'    (could not parse ~/.claude/coolify.json: {e})')
+" 2>/dev/null)
+          echo "  Available server aliases (from ~/.claude/coolify.json):" >&2
+          echo "$AVAIL" >&2
+          echo "" >&2
+        fi
+        echo "  Usage:" >&2
+        echo "    bash test/e2e.sh --server <alias> [--no-cleanup]" >&2
+        echo "    E2E_SERVER=<alias> bash test/e2e.sh   # CI-friendly env var form" >&2
+        echo "" >&2
+        echo "  To add a new server alias: /setup-coolify init_cicd" >&2
+        echo "" >&2
         ;;
       E2E_BASE_DOMAIN)
         cat >&2 <<'ERR'
@@ -309,18 +336,34 @@ cleanup() {
   # --keep on failure — leave everything running for debugging; print manual cleanup hints.
   if $KEEP_ON_EXIT; then
     echo ""
-    echo "─── --no-cleanup/--keep: leaving all resources running for inspection ───"
-    echo "  Staging URL:        https://${STAGING_DOMAIN:-<not_provisioned>}"
-    echo "  Production URL:     https://${PROD_DOMAIN:-<not_provisioned>}"
-    echo "  Coolify project:    $TEST_PROJECT (uuid: ${COOLIFY_PROJECT_UUID:-not_created})"
-    echo "  Staging app UUID:   ${STG_APP_UUID:-not_created}"
-    echo "  Production app UUID:${PRD_APP_UUID:-not_created}"
-    echo "  Doppler project:    $TEST_PROJECT (created: $DOPPLER_CREATED)"
+    echo "═══════════════════════════════════════════════════════════════════════════════"
+    echo " Resources left running (--no-cleanup) — inspect before cleaning up"
+    echo "═══════════════════════════════════════════════════════════════════════════════"
+    echo ""
+    echo "  Target"
+    echo "  ────────────────────────────────────────────────────────────────────────────"
+    echo "  Coolify server   : $SERVER_ALIAS → ${COOLIFY_URL:-<unknown>}"
+    echo "  Doppler account  : ${DOPPLER_ACCOUNT:-<unknown>}"
+    echo "  SSH host         : ${SSH_HOST:-<unknown>}"
+    echo ""
+    echo "  Apps"
+    echo "  ────────────────────────────────────────────────────────────────────────────"
+    echo "  Coolify project  : $TEST_PROJECT  (uuid: ${COOLIFY_PROJECT_UUID:-not_created})"
+    echo "  Staging app      : ${TEST_PROJECT}-staging   (uuid: ${STG_APP_UUID:-not_created})"
+    echo "  Production app   : ${TEST_PROJECT}-production (uuid: ${PRD_APP_UUID:-not_created})"
+    echo "  Doppler project  : $TEST_PROJECT  (created: $DOPPLER_CREATED)"
+    echo ""
+    echo "  URLs"
+    echo "  ────────────────────────────────────────────────────────────────────────────"
+    echo "  Staging    : https://${STAGING_DOMAIN:-<not_provisioned>}"
+    echo "  Production : https://${PROD_DOMAIN:-<not_provisioned>}"
     if [ -n "${REPORT_FILE:-}" ] && [ -f "${REPORT_FILE:-}" ]; then
       echo ""
-      echo "  Run cleanup when done:"
-      echo "    bash test/cleanup-deployment.sh $REPORT_FILE"
+      echo "  Cleanup"
+      echo "  ────────────────────────────────────────────────────────────────────────────"
+      echo "  bash test/cleanup-deployment.sh $REPORT_FILE"
     fi
+    echo "═══════════════════════════════════════════════════════════════════════════════"
     exit $exit_code
   fi
 
@@ -516,11 +559,6 @@ command -v curl >/dev/null           || { echo "MISSING: curl" >&2; exit 1; }
 command -v ssh >/dev/null            || { echo "MISSING: ssh" >&2; exit 1; }
 [ -f "$HOME/.claude/coolify.json" ]  || { echo "MISSING: ~/.claude/coolify.json" >&2; exit 1; }
 
-# Resolution precedence: --server flag (already set above) > E2E_SERVER env var > error
-if [ -z "$SERVER_ALIAS" ]; then
-  SERVER_ALIAS="$E2E_SERVER"
-fi
-
 coolify_load_server "$SERVER_ALIAS"
 doppler_load_account "$SERVER_ALIAS"
 
@@ -531,12 +569,23 @@ print(d.get('servers',{}).get('$SERVER_ALIAS',{}).get('ssh_host',''))
 ")
 [ -n "$SSH_HOST" ] || { echo "MISSING: ssh_host in coolify.json servers.$SERVER_ALIAS" >&2; exit 1; }
 
-echo "  server alias:    $SERVER_ALIAS → $COOLIFY_URL"
-echo "  base domain:     $E2E_BASE_DOMAIN"
-echo "  doppler account: $DOPPLER_ACCOUNT"
-echo "  ssh host:        $SSH_HOST"
-echo "  test project:    $TEST_PROJECT"
-echo "  image:           $E2E_IMAGE"
+# Resolve deploy_server (name registered in Coolify UI) for the summary.
+_SUMMARY_DEPLOY_SERVER=$(python3 -c "
+import json
+d = json.load(open('$HOME/.claude/coolify.json'))
+e = d.get('servers', {}).get('$SERVER_ALIAS', {})
+print(e.get('server_name', 'localhost'))
+" 2>/dev/null || echo "localhost")
+
+echo "  Coolify server   : $SERVER_ALIAS → $COOLIFY_URL"
+echo "  Deploy server    : ${_SUMMARY_DEPLOY_SERVER}"
+echo "  Doppler account  : $DOPPLER_ACCOUNT"
+echo "  SSH host         : $SSH_HOST"
+echo "  Base domain      : $E2E_BASE_DOMAIN"
+echo "  Test project     : $TEST_PROJECT"
+echo "  Staging app      : ${TEST_PROJECT}-staging"
+echo "  Production app   : ${TEST_PROJECT}-production"
+echo "  Image            : $E2E_IMAGE"
 pass "prerequisites met"
 
 # ── Preflight: verify test image is pullable ───────────────────────────────────
