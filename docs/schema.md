@@ -303,8 +303,11 @@ Set these yourself when onboarding a new repo:
 
 These are set automatically by `provision.sh` after the first successful run:
 
-- `coolify_app_ids.staging` — Coolify application UUID, cached to avoid repeated lookups
-- `coolify_app_ids.production` — Coolify application UUID, cached to avoid repeated lookups
+- `coolify_app_ids.staging` — Coolify application UUID, consumed by `generate-workflow.sh` to embed in `deploy.yml`
+- `coolify_app_ids.production` — Coolify application UUID, consumed by `generate-workflow.sh` to embed in `deploy.yml`
+
+Provisioning never reads these back — every `provision.sh` run re-resolves apps by
+name, so the values exist purely as workflow-generation input.
 
 Do not edit these manually. If you delete or reprovision an app, `provision.sh` will
 overwrite them on the next run.

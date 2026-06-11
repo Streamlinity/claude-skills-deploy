@@ -224,7 +224,7 @@ A Claude Code skills repo that provides a standardized, domain-agnostic way to d
 - Depends on: `COOLIFY_API_KEY` GitHub secret, Coolify app UUIDs embedded at generation time from `coolify_app_ids` in `coolify.yaml`
 - Used by: GitHub Actions on every push to `main`
 ## Data Flow
-- `coolify_app_ids` in `coolify.yaml` is the only mutable state owned by this skill — written by `provision.sh` after first successful run to cache UUIDs and avoid repeated API lookups
+- `coolify_app_ids` in `coolify.yaml` is the only mutable state owned by this skill — written by `provision.sh` after a successful run, and read only by `generate-workflow.sh` to embed app UUIDs in `deploy.yml`. Provisioning itself never reads it back: every run re-resolves resources by name, which keeps re-runs robust against manual changes in the Coolify UI
 - `~/.claude/coolify.json` is immutable from the skill's perspective (written only by `/setup-coolify init_cicd`)
 - All other state lives in Coolify (app configs, deployment records) and Doppler (secret values, service tokens)
 ## Key Abstractions

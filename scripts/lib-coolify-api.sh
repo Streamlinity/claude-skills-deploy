@@ -49,13 +49,15 @@ PY
 coolify_curl() {
   local method="$1" path="$2" body="${3:-}"
   local url="${COOLIFY_URL}/api/v1${path}"
+  # --retry covers transient failures only (408/429/5xx, timeouts, refused
+  # connections) — permanent 4xx errors still fail on the first attempt.
   if [ -n "$body" ]; then
-    curl -sfS -X "$method" "$url" \
+    curl -sfS --retry 3 --retry-delay 2 --retry-connrefused -X "$method" "$url" \
       -H "Authorization: Bearer ${COOLIFY_API_KEY}" \
       -H "Content-Type: application/json" \
       -d "$body"
   else
-    curl -sfS -X "$method" "$url" \
+    curl -sfS --retry 3 --retry-delay 2 --retry-connrefused -X "$method" "$url" \
       -H "Authorization: Bearer ${COOLIFY_API_KEY}"
   fi
 }

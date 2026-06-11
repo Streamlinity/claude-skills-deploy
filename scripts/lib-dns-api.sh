@@ -221,15 +221,17 @@ print(d.get('$dns_cred_key', ''))
 
 dns_cf_curl() {
   # Thin curl wrapper for Cloudflare API. DNS_API_TOKEN must be set.
+  # --retry covers transient failures only (408/429/5xx, timeouts, refused
+  # connections) — permanent 4xx errors still fail on the first attempt.
   local method="$1" path="$2" body="${3:-}"
   local url="https://api.cloudflare.com/client/v4${path}"
   if [ -n "$body" ]; then
-    curl -sfS -X "$method" "$url" \
+    curl -sfS --retry 3 --retry-delay 2 --retry-connrefused -X "$method" "$url" \
       -H "Authorization: Bearer ${DNS_API_TOKEN}" \
       -H "Content-Type: application/json" \
       -d "$body"
   else
-    curl -sfS -X "$method" "$url" \
+    curl -sfS --retry 3 --retry-delay 2 --retry-connrefused -X "$method" "$url" \
       -H "Authorization: Bearer ${DNS_API_TOKEN}"
   fi
 }
@@ -296,7 +298,7 @@ print(d.get('result', {}).get('id', ''))
 dns_cf_delete_record() {
   # Delete a DNS record by zone_id + record_id. Tolerates 404 (already gone).
   local zone_id="$1" record_id="$2"
-  curl -sfS -X DELETE \
+  curl -sfS --retry 3 --retry-delay 2 --retry-connrefused -X DELETE \
     "https://api.cloudflare.com/client/v4/zones/${zone_id}/dns_records/${record_id}" \
     -H "Authorization: Bearer ${DNS_API_TOKEN}" \
     -H "Content-Type: application/json" \

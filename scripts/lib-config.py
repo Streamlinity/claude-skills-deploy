@@ -53,23 +53,28 @@ def emit_yaml_workflow_vars(path):
     import yaml
     d = yaml.safe_load(open(path))
     img = d.get('registry', {}).get('image', '')
+    # Strip any :tag suffix — the workflow appends its own SHA tag, and a
+    # double tag (name:latest:abc1234) is an invalid Docker reference.
+    last = img.rsplit('/', 1)[-1]
+    name = img.rsplit(':', 1)[0] if ':' in last else img
     env = d.get('environments', {})
     stg = env.get('staging', {})
     prd = env.get('production', {})
     ids = d.get('coolify_app_ids', {})
     build = d.get('build', {})
     pairs = [
-        ('PROJECT',           d.get('project', '')),
-        ('SERVER_ALIAS',      d.get('server', '')),
-        ('REGISTRY_IMAGE',    img),
-        ('RETENTION',         str(d.get('registry', {}).get('retention_tags', 5))),
-        ('STAGING_DOMAIN',    stg.get('domain', '')),
-        ('PROD_DOMAIN',       prd.get('domain', '')),
-        ('HEALTH_CHECK_PATH', d.get('health_check_path', '/api/health')),
-        ('BUILD_CONTEXT',     build.get('context', '.')),
-        ('BUILD_DOCKERFILE',  build.get('dockerfile', './Dockerfile')),
-        ('STAGING_APP_UUID',  ids.get('staging') or ''),
-        ('PROD_APP_UUID',     ids.get('production') or ''),
+        ('PROJECT',             d.get('project', '')),
+        ('SERVER_ALIAS',        d.get('server', '')),
+        ('REGISTRY_IMAGE',      img),
+        ('REGISTRY_IMAGE_NAME', name),
+        ('RETENTION',           str(d.get('registry', {}).get('retention_tags', 5))),
+        ('STAGING_DOMAIN',      stg.get('domain', '')),
+        ('PROD_DOMAIN',         prd.get('domain', '')),
+        ('HEALTH_CHECK_PATH',   d.get('health_check_path', '/api/health')),
+        ('BUILD_CONTEXT',       build.get('context', '.')),
+        ('BUILD_DOCKERFILE',    build.get('dockerfile', './Dockerfile')),
+        ('STAGING_APP_UUID',    ids.get('staging') or ''),
+        ('PROD_APP_UUID',       ids.get('production') or ''),
     ]
     for k, v in pairs:
         print(f'{k}={q(v)}')

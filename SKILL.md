@@ -60,7 +60,7 @@ annotation to change provisioning behaviour today.
 
 4. **Upsert production app** (same flow, name = `${PROJECT_NAME}-production`)
 
-5. **Write coolify_app_ids back to coolify.yaml** (cache optimization)
+5. **Write coolify_app_ids back to coolify.yaml** (consumed by `generate-workflow.sh` to embed app UUIDs in `deploy.yml`; provisioning never reads it back — every run re-resolves by name)
 
 6. **Done.** `provision.sh` does NOT trigger an initial deploy. The first deploy is fired by pushing to `main`, which activates the generated `.github/workflows/deploy.yml` (build → GHCR → deploy-staging → smoke-test → deploy-production). To redeploy manually, push any commit to `main` or trigger the workflow from the GitHub Actions UI.
 

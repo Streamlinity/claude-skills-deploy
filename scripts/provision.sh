@@ -19,6 +19,19 @@ if ! bash "$SCRIPT_DIR/validate.sh" "$YAML_PATH"; then
   exit 1
 fi
 
+# A mid-run abort (e.g. transient API failure after retries are exhausted) can
+# leave Coolify partially provisioned. Every operation is lookup-then-create,
+# so re-running resumes safely from wherever the previous run stopped.
+_abort_notice() {
+  local rc=$?
+  if [ "$rc" -ne 0 ]; then
+    echo "" >&2
+    echo "ERROR: provisioning aborted (exit $rc). Coolify may be partially provisioned." >&2
+    echo "Re-run /setup-coolify — provisioning is idempotent and resumes safely." >&2
+  fi
+}
+trap _abort_notice EXIT
+
 # Parse coolify.yaml — safe extraction via lib-config.py (shlex.quote'd output, no injection)
 eval "$(python3 "$SCRIPT_DIR/lib-config.py" emit-yaml-vars "$YAML_PATH")"
 

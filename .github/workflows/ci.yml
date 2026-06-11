@@ -30,6 +30,10 @@ jobs:
       # init/test_init.sh excluded — prompt sequence out of sync with current init.sh (pre-existing)
       - name: verify-s01-args.sh
         run: bash test/verify-s01-args.sh
+      - name: lib-coolify-api parser unit tests (fixture-driven)
+        run: bash test/test-lib-coolify-api.sh
+      - name: workflow contract checks (generated deploy.yml vs e2e-proven sequence)
+        run: bash test/validate-workflow-contract.sh
       - name: validate-workflow.sh (example output)
         run: |
           # Generate a workflow from the example coolify.yaml and validate its structure.
