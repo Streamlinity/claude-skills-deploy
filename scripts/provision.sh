@@ -10,7 +10,22 @@ source "$SCRIPT_DIR/lib-coolify-api.sh"
 source "$SCRIPT_DIR/lib-doppler-api.sh"
 source "$SCRIPT_DIR/lib-dns-api.sh"
 
-YAML_PATH="${1:-./coolify.yaml}"
+# Args: [coolify.yaml path] [--plan] [--rotate-tokens]
+#   --plan           read-only diff: report CREATE / EXISTS / PATCH-would-change
+#                    per resource, then exit without mutating anything
+#   --rotate-tokens  force Doppler service token rotation even when one is wired
+PLAN_MODE="${PLAN_MODE:-false}"
+ROTATE_TOKENS="${ROTATE_TOKENS:-false}"
+YAML_PATH=""
+for _arg in "$@"; do
+  case "$_arg" in
+    --plan)          PLAN_MODE=true ;;
+    --rotate-tokens) ROTATE_TOKENS=true ;;
+    --*)             echo "ERROR: unknown flag '$_arg' (expected: --plan | --rotate-tokens)" >&2; exit 1 ;;
+    *)               YAML_PATH="$_arg" ;;
+  esac
+done
+YAML_PATH="${YAML_PATH:-./coolify.yaml}"
 [ -f "$YAML_PATH" ] || { echo "ERROR: $YAML_PATH not found" >&2; exit 1; }
 
 # Run validate.sh first — bail on any error
@@ -19,11 +34,30 @@ if ! bash "$SCRIPT_DIR/validate.sh" "$YAML_PATH"; then
   exit 1
 fi
 
+# A mid-run abort (e.g. transient API failure after retries are exhausted) can
+# leave Coolify partially provisioned. Every operation is lookup-then-create,
+# so re-running resumes safely from wherever the previous run stopped.
+_abort_notice() {
+  local rc=$?
+  if [ "$rc" -ne 0 ]; then
+    echo "" >&2
+    echo "ERROR: provisioning aborted (exit $rc). Coolify may be partially provisioned." >&2
+    echo "Re-run /setup-coolify — provisioning is idempotent and resumes safely." >&2
+  fi
+}
+trap _abort_notice EXIT
+
 # Parse coolify.yaml — safe extraction via lib-config.py (shlex.quote'd output, no injection)
 eval "$(python3 "$SCRIPT_DIR/lib-config.py" emit-yaml-vars "$YAML_PATH")"
 
 coolify_load_server "$SERVER_ALIAS"
 doppler_load_account "$SERVER_ALIAS"
+
+# Environments come from the environments: map in coolify.yaml — staging and
+# production are required (CI promotes staging -> production); any additional
+# environments (qa, preview, ...) are provisioned identically.
+mapfile -t ENV_LINES < <(python3 "$SCRIPT_DIR/lib-config.py" list-environments "$YAML_PATH")
+[ "${#ENV_LINES[@]}" -ge 2 ] || { echo "ERROR: could not parse environments from $YAML_PATH" >&2; exit 1; }
 
 echo "provision: project=$PROJECT server=$SERVER_ALIAS ($COOLIFY_URL) doppler_account=$DOPPLER_ACCOUNT"
 
@@ -40,19 +74,23 @@ echo "  Doppler account  : $DOPPLER_ACCOUNT"
 echo ""
 echo "  Apps to provision"
 echo "  ────────────────────────────────────────────────────────────────────────────"
-echo "  Staging app      : ${PROJECT}-staging"
-echo "  Production app   : ${PROJECT}-production"
+for _line in "${ENV_LINES[@]}"; do
+  IFS=$'\t' read -r _env _domain _dopp <<< "$_line"
+  printf '  %-17s: %s  →  https://%s  (Doppler: %s)\n' "$_env" "${PROJECT}-${_env}" "$_domain" "$_dopp"
+done
 echo "  Image            : $REGISTRY_IMAGE"
-echo "  Staging domain   : https://$STAGING_DOMAIN"
-echo "  Production domain: https://$PROD_DOMAIN"
 echo "  Env vars         : $ENV_VARS"
 echo "═══════════════════════════════════════════════════════════════════════════════"
 echo ""
 
 # 1. Discover Coolify topology by name — no hardcoded UUIDs.
-PROJECT_UUID=$(coolify_upsert_project "$PROJECT" "Provisioned by /setup-coolify from $YAML_PATH")
-[ -n "$PROJECT_UUID" ] || { echo "ERROR: failed to resolve project UUID for '$PROJECT'" >&2; exit 1; }
-echo "  project_uuid=$PROJECT_UUID"
+# Plan mode is lookup-only: a missing project is reported as CREATE, never created.
+PROJECT_UUID=$(coolify_get_project_uuid "$PROJECT")
+if [ -z "$PROJECT_UUID" ] && [ "$PLAN_MODE" != "true" ]; then
+  PROJECT_UUID=$(coolify_upsert_project "$PROJECT" "Provisioned by /setup-coolify from $YAML_PATH")
+  [ -n "$PROJECT_UUID" ] || { echo "ERROR: failed to resolve project UUID for '$PROJECT'" >&2; exit 1; }
+fi
+echo "  project_uuid=${PROJECT_UUID:-<would create>}"
 
 # Server name on a single-node Coolify install is conventionally "localhost", but
 # is user-configurable in the Coolify UI. Read the configured name from coolify.json
@@ -144,6 +182,7 @@ eval "$(python3 "$SCRIPT_DIR/lib-config.py" emit-dns-vars "$YAML_PATH")"
 
 if [ "${dns_provider:-none}" != "none" ]; then
   DNS_ENABLED=true
+  # shellcheck disable=SC2154  # dns_provider/dns_zone_name_raw assigned via eval of emit-dns-vars
   export DNS_PROVIDER="$dns_provider" DNS_ZONE_NAME="$dns_zone_name_raw"
   export DOPPLER_PROJECT DOPPLER_ENV="$STAGING_DOPPLER"
   dns_load_credentials "$YAML_PATH"
@@ -157,30 +196,154 @@ else
   echo "provision: dns: skipped (provider: none or block absent)"
 fi
 
-# 2. Per-environment provisioning
+# ── Plan mode: read-only diff against live state, then exit ─────────────────────
+# Terraform-style report: CREATE / EXISTS / PATCH-would-change per resource.
+# Makes re-runs on production servers reviewable before any mutation.
+if [ "$PLAN_MODE" = "true" ]; then
+  echo ""
+  echo "═══════════════════════════════════════════════════════════════════════════════"
+  echo " Plan (read-only — nothing will be changed)"
+  echo "═══════════════════════════════════════════════════════════════════════════════"
+  _CREATES=0; _CHANGES=0; _UNCHANGED=0
+
+  if [ -z "$PROJECT_UUID" ]; then
+    echo "  + CREATE  project $PROJECT"
+    _CREATES=$((_CREATES+1))
+  else
+    echo "  = EXISTS  project $PROJECT ($PROJECT_UUID)"
+    _UNCHANGED=$((_UNCHANGED+1))
+  fi
+
+  for _env_line in "${ENV_LINES[@]}"; do
+    IFS=$'\t' read -r ENV_NAME DOMAIN DOPPLER_ENV <<< "$_env_line"
+    APP_NAME="${PROJECT}-${ENV_NAME}"
+    APP_UUID=$(coolify_find_app_by_name "$APP_NAME")
+
+    if [ -z "$APP_UUID" ]; then
+      echo "  + CREATE  app $APP_NAME (image=$REGISTRY_IMAGE_NAME domain=https://$DOMAIN)"
+      echo "  + CREATE    volume <uuid>-doppler-cache on $DEPLOY_SSH_HOST"
+      echo "  + CREATE    Doppler service token coolify-${PROJECT}-${ENV_NAME} ($DOPPLER_PROJECT/$DOPPLER_ENV)"
+      [ "$DNS_ENABLED" = true ] && echo "  + CREATE    DNS A $DOMAIN -> $DEPLOY_VPS_IP"
+      _CREATES=$((_CREATES+1))
+      continue
+    fi
+
+    # App exists — diff desired settings against live state (single GET)
+    VOLUME_NAME="${APP_UUID}-doppler-cache"
+    _drift=$(coolify_curl GET "/applications/$APP_UUID" \
+      | _CSD_DOMAIN="https://$DOMAIN" _CSD_MOUNT="$VOLUME_NAME" \
+        _CSD_IMG="$REGISTRY_IMAGE_NAME" _CSD_HC="$HEALTH_CHECK_PATH" python3 -c "
+import json, sys, os
+a = json.load(sys.stdin)
+drift = []
+# Coolify returns the configured domain as 'fqdn' on GET; 'domains' is the PATCH field.
+live_domain = a.get('fqdn') or a.get('domains') or ''
+if live_domain != os.environ['_CSD_DOMAIN']:
+    drift.append(f\"domains: {live_domain!r} -> {os.environ['_CSD_DOMAIN']!r}\")
+if os.environ['_CSD_MOUNT'] not in (a.get('custom_docker_run_options') or ''):
+    drift.append('custom_docker_run_options: doppler-cache volume mount missing')
+if a.get('docker_registry_image_name', '') != os.environ['_CSD_IMG']:
+    drift.append(f\"image: {a.get('docker_registry_image_name','')!r} -> {os.environ['_CSD_IMG']!r}\")
+if a.get('health_check_path', '') != os.environ['_CSD_HC']:
+    drift.append(f\"health_check_path: {a.get('health_check_path','')!r} -> {os.environ['_CSD_HC']!r}\")
+print('\n'.join(drift))
+")
+    if [ -n "$_drift" ]; then
+      echo "  ~ PATCH   app $APP_NAME ($APP_UUID):"
+      while IFS= read -r _d; do echo "              $_d"; done <<< "$_drift"
+      _CHANGES=$((_CHANGES+1))
+    else
+      echo "  = EXISTS  app $APP_NAME ($APP_UUID) — settings match"
+      _UNCHANGED=$((_UNCHANGED+1))
+    fi
+
+    # Volume (read-only inspect; ssh -n prevents stdin slurp inside loops)
+    if ssh -n "$DEPLOY_SSH_HOST" "docker volume inspect $VOLUME_NAME >/dev/null 2>&1"; then
+      echo "  = EXISTS    volume $VOLUME_NAME"
+      _UNCHANGED=$((_UNCHANGED+1))
+    else
+      echo "  + CREATE    volume $VOLUME_NAME on $DEPLOY_SSH_HOST"
+      _CREATES=$((_CREATES+1))
+    fi
+
+    # DOPPLER_TOKEN wiring
+    # Key presence only — Coolify redacts env values (value: null) in GET responses.
+    _token_wired=$(coolify_curl GET "/applications/$APP_UUID/envs" 2>/dev/null | python3 -c "
+import json, sys
+try:
+    envs = json.load(sys.stdin)
+    items = envs if isinstance(envs, list) else envs.get('data', [])
+    print('yes' if any(e.get('key') == 'DOPPLER_TOKEN' for e in items) else 'no')
+except Exception:
+    print('no')
+" 2>/dev/null || echo "no")
+    if [ "$_token_wired" = "yes" ]; then
+      if [ "$ROTATE_TOKENS" = "true" ]; then
+        echo "  ~ ROTATE    Doppler token coolify-${PROJECT}-${ENV_NAME} (--rotate-tokens)"
+        _CHANGES=$((_CHANGES+1))
+      else
+        echo "  = EXISTS    DOPPLER_TOKEN wired (kept — pass --rotate-tokens to rotate)"
+        _UNCHANGED=$((_UNCHANGED+1))
+      fi
+    else
+      echo "  + CREATE    Doppler service token coolify-${PROJECT}-${ENV_NAME} ($DOPPLER_PROJECT/$DOPPLER_ENV)"
+      _CREATES=$((_CREATES+1))
+    fi
+
+    # DNS record
+    if [ "$DNS_ENABLED" = true ]; then
+      _rid=$(dns_cf_find_record "$DNS_ZONE_ID" "$DOMAIN" "A" || echo "")
+      if [ -z "$_rid" ]; then
+        echo "  + CREATE    DNS A $DOMAIN -> $DEPLOY_VPS_IP"
+        _CREATES=$((_CREATES+1))
+      else
+        _cur_ip=$(dns_cf_curl GET "/zones/${DNS_ZONE_ID}/dns_records/${_rid}" 2>/dev/null | python3 -c "
+import json, sys
+try: print(json.load(sys.stdin).get('result', {}).get('content', ''))
+except Exception: print('')
+" 2>/dev/null || echo "")
+        if [ "$_cur_ip" = "$DEPLOY_VPS_IP" ]; then
+          echo "  = EXISTS    DNS A $DOMAIN -> $DEPLOY_VPS_IP"
+          _UNCHANGED=$((_UNCHANGED+1))
+        else
+          echo "  ~ UPDATE    DNS A $DOMAIN: $_cur_ip -> $DEPLOY_VPS_IP"
+          _CHANGES=$((_CHANGES+1))
+        fi
+      fi
+    fi
+  done
+
+  echo "═══════════════════════════════════════════════════════════════════════════════"
+  echo " Plan summary: $_CREATES to create, $_CHANGES to change, $_UNCHANGED unchanged"
+  echo " No changes were made. Run /setup-coolify (without --plan) to apply."
+  echo "═══════════════════════════════════════════════════════════════════════════════"
+  exit 0
+fi
+
+# 2. Per-environment provisioning — iterates the environments: map from
+# coolify.yaml (staging + production required; extra envs provisioned identically)
 declare -A APP_UUIDS
 
-for ENV_NAME in staging production; do
-  case "$ENV_NAME" in
-    staging)    DOMAIN="$STAGING_DOMAIN"; DOPPLER_ENV="$STAGING_DOPPLER" ;;
-    production) DOMAIN="$PROD_DOMAIN";    DOPPLER_ENV="$PROD_DOPPLER" ;;
-  esac
+for _env_line in "${ENV_LINES[@]}"; do
+  IFS=$'\t' read -r ENV_NAME DOMAIN DOPPLER_ENV <<< "$_env_line"
   APP_NAME="${PROJECT}-${ENV_NAME}"
 
   # 2a. Upsert app — lookup by name first (idempotent)
   APP_UUID=$(coolify_find_app_by_name "$APP_NAME")
   if [ -z "$APP_UUID" ]; then
     BODY=$(python3 - "$PROJECT_UUID" "$DEPLOY_SERVER_UUID" "$APP_NAME" \
-        "$REGISTRY_IMAGE_NAME" "$APP_PORT" "https://$DOMAIN" "${DEST_UUID:-}" <<'PY'
+        "$REGISTRY_IMAGE_NAME" "$REGISTRY_IMAGE_TAG" "$APP_PORT" "https://$DOMAIN" "${DEST_UUID:-}" <<'PY'
 import json, sys
-project_uuid, server_uuid, name, img, port, domain, dest_uuid = sys.argv[1:8]
+project_uuid, server_uuid, name, img, tag, port, domain, dest_uuid = sys.argv[1:9]
 d = {
   'project_uuid': project_uuid,
   'server_uuid': server_uuid,
   'environment_name': 'production',
   'name': name,
   'docker_registry_image_name': img,
-  'docker_registry_image_tag': 'latest',
+  # Initial tag — CI will PATCH this to the SHA tag before the first deploy.
+  # 'latest' is used as a safe placeholder; provision does NOT trigger a deploy.
+  'docker_registry_image_tag': tag or 'latest',
   'ports_exposes': port,
   'domains': domain,
   'is_auto_deploy_enabled': False,
@@ -191,9 +354,7 @@ if dest_uuid:
 print(json.dumps(d))
 PY
 )
-    # Try registry-image endpoint first; fall back to dockerimage
-    CREATE_RESP=$(coolify_curl POST "/applications/dockerimage" "$BODY" 2>/dev/null \
-      || coolify_curl POST "/applications/private-github-app" "$BODY")
+    CREATE_RESP=$(coolify_curl POST "/applications/dockerimage" "$BODY")
     APP_UUID=$(echo "$CREATE_RESP" | python3 -c "import json,sys; print(json.load(sys.stdin).get('uuid',''))")
     [ -n "$APP_UUID" ] || { echo "ERROR: failed to create app $APP_NAME. Response: $CREATE_RESP" >&2; exit 1; }
     
@@ -254,6 +415,8 @@ PY
   # next redeploy, causing secret-fetch failures on restart). Pass --rotate-tokens
   # to force rotation (e.g. after a credential compromise).
   TOKEN_NAME="coolify-${PROJECT}-${ENV_NAME}"
+  # Key presence only — Coolify redacts env values (value: null) in GET responses,
+  # so checking e.get('value') would never match and tokens would rotate every run.
   _existing_token=$(coolify_curl GET "/applications/$APP_UUID/envs" 2>/dev/null \
     | python3 -c "
 import json,sys
@@ -261,7 +424,7 @@ try:
   envs=json.load(sys.stdin)
   items=envs if isinstance(envs,list) else envs.get('data',[])
   for e in items:
-    if e.get('key')=='DOPPLER_TOKEN' and e.get('value',''):
+    if e.get('key')=='DOPPLER_TOKEN':
       print('yes'); break
 except: pass
 " 2>/dev/null || echo "")
@@ -304,16 +467,32 @@ PY
   fi
 done
 
-# 3. Write back coolify_app_ids to coolify.yaml
-python3 - "$YAML_PATH" "${APP_UUIDS[staging]}" "${APP_UUIDS[production]}" <<'PY'
-import sys, yaml
-path, staging_uuid, prod_uuid = sys.argv[1:4]
-with open(path) as f: d = yaml.safe_load(f)
-d.setdefault('coolify_app_ids', {})
-d['coolify_app_ids']['staging'] = staging_uuid
-d['coolify_app_ids']['production'] = prod_uuid
+# 3. Write back coolify_app_ids to coolify.yaml — targeted block edit preserves
+# comments outside the block. yaml.safe_dump would strip every # CHANGE:/# LEAVE:
+# guide comment on the first run. The block itself is rebuilt from the provisioned
+# environment map, so extra environments (qa, preview, ...) get lines appended.
+_WRITEBACK_ARGS=()
+for _env_line in "${ENV_LINES[@]}"; do
+  IFS=$'\t' read -r _env _ _ <<< "$_env_line"
+  _WRITEBACK_ARGS+=("$_env" "${APP_UUIDS[$_env]}")
+done
+python3 - "$YAML_PATH" "${_WRITEBACK_ARGS[@]}" <<'PY'
+import sys, re
+path = sys.argv[1]
+args = sys.argv[2:]
+pairs = list(zip(args[0::2], args[1::2]))
+with open(path) as f:
+    content = f.read()
+block = 'coolify_app_ids:\n' + ''.join(f'  {env}: {uuid}\n' for env, uuid in pairs)
+pattern = r'(?m)^coolify_app_ids:[ \t]*\n(?:[ \t]+\S[^\n]*\n?)*'
+if re.search(pattern, content):
+    content = re.sub(pattern, block, content, count=1)
+else:
+    if not content.endswith('\n'):
+        content += '\n'
+    content += block
 with open(path, 'w') as f:
-    yaml.safe_dump(d, f, sort_keys=False, default_flow_style=False)
+    f.write(content)
 PY
 echo "  WROTE back coolify_app_ids to $YAML_PATH"
 
@@ -322,7 +501,12 @@ bash "$SCRIPT_DIR/generate-workflow.sh" "$YAML_PATH"
 echo "  REGENERATED .github/workflows/deploy.yml with provisioned app UUIDs"
 
 echo ""
-echo "DONE: ${PROJECT}-staging=${APP_UUIDS[staging]} ${PROJECT}-production=${APP_UUIDS[production]}"
+_done_line="DONE:"
+for _env_line in "${ENV_LINES[@]}"; do
+  IFS=$'\t' read -r _env _ _ <<< "$_env_line"
+  _done_line+=" ${PROJECT}-${_env}=${APP_UUIDS[$_env]}"
+done
+echo "$_done_line"
 
 # ── Completion summary ─────────────────────────────────────────────────────────
 echo ""
@@ -339,25 +523,26 @@ echo "  SSH host         : $SSH_HOST"
 echo ""
 echo "  Apps"
 echo "  ────────────────────────────────────────────────────────────────────────────"
-echo "  Staging app      : ${PROJECT}-staging   (uuid: ${APP_UUIDS[staging]})"
-echo "  Production app   : ${PROJECT}-production (uuid: ${APP_UUIDS[production]})"
+for _env_line in "${ENV_LINES[@]}"; do
+  IFS=$'\t' read -r _env _ _ <<< "$_env_line"
+  printf '  %-17s: %s  (uuid: %s)\n' "$_env" "${PROJECT}-${_env}" "${APP_UUIDS[$_env]}"
+done
 echo "  Image            : $REGISTRY_IMAGE"
 echo ""
 echo "  Domains"
 echo "  ────────────────────────────────────────────────────────────────────────────"
-echo "  Staging    : https://$STAGING_DOMAIN"
-echo "  Production : https://$PROD_DOMAIN"
+for _env_line in "${ENV_LINES[@]}"; do
+  IFS=$'\t' read -r _env _domain _ <<< "$_env_line"
+  printf '  %-11s: https://%s\n' "$_env" "$_domain"
+done
 if [ "$DNS_ENABLED" = true ]; then
   echo ""
   echo "  DNS records created"
   echo "  ────────────────────────────────────────────────────────────────────────────"
   echo "  Provider   : $DNS_PROVIDER  (zone: $DNS_ZONE_NAME)"
-  for ENV_NAME in staging production; do
-    case "$ENV_NAME" in
-      staging)    D="$STAGING_DOMAIN"; RID="${DNS_RECORD_IDS[staging]:-}" ;;
-      production) D="$PROD_DOMAIN";    RID="${DNS_RECORD_IDS[production]:-}" ;;
-    esac
-    echo "  A  $D → $DEPLOY_VPS_IP  (record_id: ${RID:-n/a})"
+  for _env_line in "${ENV_LINES[@]}"; do
+    IFS=$'\t' read -r _env _domain _ <<< "$_env_line"
+    echo "  A  $_domain → $DEPLOY_VPS_IP  (record_id: ${DNS_RECORD_IDS[$_env]:-n/a})"
   done
 else
   echo ""

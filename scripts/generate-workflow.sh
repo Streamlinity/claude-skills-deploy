@@ -48,9 +48,9 @@ else
   COOLIFY_URL="https://REPLACE_WITH_YOUR_COOLIFY_URL"
 fi
 
-# GHCR owner and package name from registry image path
-OWNER=$(echo "$REGISTRY_IMAGE" | awk -F'/' '{print $2}')
-PACKAGE=$(echo "$REGISTRY_IMAGE" | awk -F'/' '{print $3}')
+# GHCR package name from the tag-stripped image path — REGISTRY_IMAGE may
+# carry a :tag suffix which must not leak into the ghcr-cleanup package name.
+PACKAGE=$(echo "$REGISTRY_IMAGE_NAME" | awk -F'/' '{print $3}')
 
 mkdir -p "$OUT_DIR"
 
@@ -93,7 +93,7 @@ jobs:
           context: $BUILD_CONTEXT
           file: $BUILD_DOCKERFILE
           push: true
-          tags: $REGISTRY_IMAGE:\${{ steps.tag.outputs.short_sha }}
+          tags: $REGISTRY_IMAGE_NAME:\${{ steps.tag.outputs.short_sha }}
           # No build-args — same image, runtime env injection via Doppler.
 
   deploy-staging:

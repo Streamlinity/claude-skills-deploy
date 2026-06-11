@@ -9,6 +9,7 @@
 #   python3 lib-config.py emit-yaml-workflow-vars <yaml_path>
 #   python3 lib-config.py emit-dns-vars <yaml_path>
 #   python3 lib-config.py get-json-field <json_path> <server_alias> <field>
+#   python3 lib-config.py list-environments <yaml_path>
 
 import sys
 import json
@@ -53,26 +54,60 @@ def emit_yaml_workflow_vars(path):
     import yaml
     d = yaml.safe_load(open(path))
     img = d.get('registry', {}).get('image', '')
+    # Strip any :tag suffix — the workflow appends its own SHA tag, and a
+    # double tag (name:latest:abc1234) is an invalid Docker reference.
+    last = img.rsplit('/', 1)[-1]
+    name = img.rsplit(':', 1)[0] if ':' in last else img
     env = d.get('environments', {})
     stg = env.get('staging', {})
     prd = env.get('production', {})
     ids = d.get('coolify_app_ids', {})
     build = d.get('build', {})
     pairs = [
-        ('PROJECT',           d.get('project', '')),
-        ('SERVER_ALIAS',      d.get('server', '')),
-        ('REGISTRY_IMAGE',    img),
-        ('RETENTION',         str(d.get('registry', {}).get('retention_tags', 5))),
-        ('STAGING_DOMAIN',    stg.get('domain', '')),
-        ('PROD_DOMAIN',       prd.get('domain', '')),
-        ('HEALTH_CHECK_PATH', d.get('health_check_path', '/api/health')),
-        ('BUILD_CONTEXT',     build.get('context', '.')),
-        ('BUILD_DOCKERFILE',  build.get('dockerfile', './Dockerfile')),
-        ('STAGING_APP_UUID',  ids.get('staging') or ''),
-        ('PROD_APP_UUID',     ids.get('production') or ''),
+        ('PROJECT',             d.get('project', '')),
+        ('SERVER_ALIAS',        d.get('server', '')),
+        ('REGISTRY_IMAGE',      img),
+        ('REGISTRY_IMAGE_NAME', name),
+        ('RETENTION',           str(d.get('registry', {}).get('retention_tags', 5))),
+        ('STAGING_DOMAIN',      stg.get('domain', '')),
+        ('PROD_DOMAIN',         prd.get('domain', '')),
+        ('HEALTH_CHECK_PATH',   d.get('health_check_path', '/api/health')),
+        ('BUILD_CONTEXT',       build.get('context', '.')),
+        ('BUILD_DOCKERFILE',    build.get('dockerfile', './Dockerfile')),
+        ('STAGING_APP_UUID',    ids.get('staging') or ''),
+        ('PROD_APP_UUID',       ids.get('production') or ''),
     ]
     for k, v in pairs:
         print(f'{k}={q(v)}')
+
+
+def list_environments(path):
+    # One tab-separated line per environment: name<TAB>domain<TAB>doppler_environment.
+    # Environments are emitted in manifest order. staging and production are
+    # REQUIRED (the generated workflow's same-image promotion pipeline is
+    # staging -> production); any additional environments (qa, preview, ...)
+    # are provisioned identically but do not participate in the CI pipeline.
+    import yaml
+    d = yaml.safe_load(open(path))
+    envs = d.get('environments', {}) or {}
+    errors = []
+    for required in ('staging', 'production'):
+        if required not in envs:
+            errors.append(f'ERROR: environments.{required} is required '
+                          f'(the CI pipeline promotes staging -> production)')
+    for name, cfg in envs.items():
+        cfg = cfg or {}
+        if not cfg.get('domain'):
+            errors.append(f'ERROR: environments.{name}.domain is empty')
+        if not cfg.get('doppler_environment'):
+            errors.append(f'ERROR: environments.{name}.doppler_environment is empty')
+        if '\t' in name or '\t' in str(cfg.get('domain', '')) or '\t' in str(cfg.get('doppler_environment', '')):
+            errors.append(f'ERROR: environments.{name} contains a tab character')
+    if errors:
+        print('\n'.join(errors), file=sys.stderr)
+        sys.exit(1)
+    for name, cfg in envs.items():
+        print(f"{name}\t{cfg['domain']}\t{cfg['doppler_environment']}")
 
 
 def emit_dns_vars(path):
@@ -123,6 +158,8 @@ if __name__ == '__main__':
         emit_yaml_workflow_vars(sys.argv[2])
     elif cmd == 'emit-dns-vars':
         emit_dns_vars(sys.argv[2])
+    elif cmd == 'list-environments':
+        list_environments(sys.argv[2])
     elif cmd == 'get-json-field':
         get_json_field(sys.argv[2], sys.argv[3], sys.argv[4])
     else:

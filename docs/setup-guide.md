@@ -374,7 +374,7 @@ You will be prompted for:
 - Project name (e.g., `skillmap`)
 - Server alias (must match a key in `~/.claude/coolify.json`, e.g., `vultr-stream`)
 - Doppler project slug (e.g., `skillmap`)
-- GHCR registry image (e.g., `ghcr.io/anatesan-stream/ai-upskilling`)
+- GHCR registry image (e.g., `ghcr.io/my-org/my-app`)
 - Staging domain (e.g., `skillmap-staging.cicd.streamlinity.com`)
 - Production domain (e.g., `skillmap.cicd.streamlinity.com`)
 - DNS provider (default `cloudflare`; enter `none` to skip automated DNS)

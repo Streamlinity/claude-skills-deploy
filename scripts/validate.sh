@@ -42,9 +42,16 @@ fail() { echo "FAIL: $*" >&2; ERRORS=$((ERRORS+1)); }
 [ -n "$SERVER" ] || fail "INVALID:coolify.yaml:server (empty)"
 [ -n "$DOPPLER_PROJECT" ] || fail "INVALID:coolify.yaml:doppler_project (empty)"
 [ -n "$REGISTRY_IMAGE" ] || fail "INVALID:coolify.yaml:registry.image (empty)"
-[ -n "$STAGING_DOMAIN" ] || fail "INVALID:coolify.yaml:environments.staging.domain"
-[ -n "$PROD_DOMAIN" ] || fail "INVALID:coolify.yaml:environments.production.domain"
 [ -n "$ENV_VARS" ] || fail "INVALID:coolify.yaml:env_vars (empty list)"
+
+# Validate the environments: map — staging+production required, every env needs
+# domain + doppler_environment. list-environments prints named-field errors itself.
+if ! ENV_LINES_RAW=$(python3 "$SCRIPT_DIR/lib-config.py" list-environments "$YAML_PATH" 2>&1); then
+  while IFS= read -r _eline; do
+    fail "INVALID:coolify.yaml:${_eline#ERROR: }"
+  done <<< "$ENV_LINES_RAW"
+fi
+mapfile -t ENV_LINES <<< "$ENV_LINES_RAW"
 
 if [ "$ERRORS" -gt 0 ]; then
   echo "" >&2
@@ -79,22 +86,20 @@ echo "validate: server alias '$SERVER' -> $COOLIFY_URL (doppler account: $DOPPLE
 WARNINGS=0
 warn() { echo "WARN: $*" >&2; WARNINGS=$((WARNINGS+1)); }
 
-_server_field=$(python3 -c "
+_server_field=$(python3 - "$HOME/.claude/coolify.json" "$SERVER" 2>/dev/null <<'PY' || echo ""
 import json, sys
-d = json.load(open('$HOME/.claude/coolify.json'))
-s = d.get('servers', {}).get('$SERVER', {})
+d = json.load(open(sys.argv[1]))
+s = d.get('servers', {}).get(sys.argv[2], {})
 missing = []
-# doppler_token: without it the CLI uses ambient auth and may hit the wrong workspace
 if not s.get('doppler_token'):
     missing.append('doppler_token')
-# cloudflare_api_token: required when dns.credential_source=coolify_json
 if not s.get('cloudflare_api_token'):
     missing.append('cloudflare_api_token')
-# dns_default: needed for E2E tests to exercise the DNS code path automatically
 if not s.get('dns_default'):
     missing.append('dns_default')
 print(' '.join(missing))
-" 2>/dev/null || echo "")
+PY
+)
 
 if [ -n "$_server_field" ]; then
   for _f in $_server_field; do
@@ -209,7 +214,7 @@ fi
 # host causes a mid-run abort that leaves Coolify in a partially-provisioned state.
 EFFECTIVE_SSH_HOST="${DEPLOY_SSH_HOST_CHECK:-$SSH_HOST_CHECK}"
 if [ -n "$EFFECTIVE_SSH_HOST" ]; then
-  if ! ssh -q -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=no \
+  if ! ssh -q -o BatchMode=yes -o ConnectTimeout=5 -o StrictHostKeyChecking=accept-new \
        "$EFFECTIVE_SSH_HOST" true 2>/dev/null; then
     fail "INVALID:ssh:$EFFECTIVE_SSH_HOST unreachable or authentication failed (check ~/.ssh/config, keys, and server firewall)"
   else
@@ -264,9 +269,11 @@ _fill_missing_from_env() {
       # Only fill if missing or empty in Doppler
       if ! doppler_check_key "$doppler_project" "$cfg" "$k" 2>/dev/null; then
         local v="${_env_vals[$k]}"
-        if doppler secrets set "${k}=${v}" \
-             --project "$doppler_project" --config "$cfg" \
-             >/dev/null 2>&1; then
+        # Pass via stdin (JSON) to avoid secret appearing in doppler's argv / ps output.
+        if python3 -c "import json,sys; sys.stdout.write(json.dumps({sys.argv[1]: sys.argv[2]}))" \
+               "$k" "$v" \
+             | doppler secrets upload --project "$doppler_project" --config "$cfg" - \
+               >/dev/null 2>&1; then
           echo "  validate: gap-filled $k → $doppler_project/$cfg (from $env_file)"
           filled=$((filled+1))
         else
@@ -308,8 +315,14 @@ else
   fi
 fi
 
-# Verify every env_vars key exists in BOTH staging and production with non-placeholder values
-for ENV in "$STAGING_DOPPLER" "$PROD_DOPPLER"; do
+# Verify every env_vars key exists in EVERY environment's Doppler config with
+# non-placeholder values (staging + production + any extra envs like qa/preview)
+_DOPPLER_CONFIGS=()
+for _env_line in "${ENV_LINES[@]}"; do
+  IFS=$'\t' read -r _ _ _dopp <<< "$_env_line"
+  [ -n "$_dopp" ] && _DOPPLER_CONFIGS+=("$_dopp")
+done
+for ENV in "${_DOPPLER_CONFIGS[@]}"; do
   for KEY in $ENV_VARS; do
     # Strip trailing comment-encoded build_time annotation if any survived (defensive)
     KEY="${KEY%%#*}"
@@ -366,6 +379,7 @@ else
   if ! dns_check_credentials "$YAML_PATH"; then
     fail "MISSING:DNS_CREDENTIAL:${cred_key:-<credential_key>} (not found in ${cred_source:-doppler})"
   else
+    # shellcheck disable=SC2154  # provider/zone_name/cred_key assigned via eval of emit-dns-vars
     echo "validate: dns: provider=$provider zone=$zone_name credential=$cred_key (source: ${cred_source:-doppler}) — OK"
   fi
 fi
@@ -376,7 +390,7 @@ if [ "$ERRORS" -gt 0 ]; then
   exit 1
 fi
 
-echo "OK: All keys present in $DOPPLER_PROJECT/$STAGING_DOPPLER and $DOPPLER_PROJECT/$PROD_DOPPLER"
+echo "OK: All keys present in $DOPPLER_PROJECT/{$(IFS=,; echo "${_DOPPLER_CONFIGS[*]}")}"
 echo "OK: $COOLIFY_URL API reachable"
 echo "OK: ready to provision (run /setup-coolify without arguments)"
 exit 0

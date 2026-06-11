@@ -7,7 +7,8 @@ Coolify + Doppler deployment skills for Claude Code.
 | Skill | Invoke | Purpose |
 |-------|--------|---------|
 | `setup-coolify` | `/setup-coolify` | Provision/update Coolify staging + production apps from coolify.yaml. Idempotent. |
-| `setup-coolify init` | `/setup-coolify init` | Interactive setup of `~/.claude/coolify.json` for a new Coolify server alias. |
+| `setup-coolify init_cicd` | `/setup-coolify init_cicd` | Interactive setup of `~/.claude/coolify.json` for a new Coolify server alias. |
+| `setup-coolify init_app` | `/setup-coolify init_app` | Bootstrap `coolify.yaml` + `.github/workflows/deploy.yml` in the current repo. |
 | `setup-coolify validate` | `/setup-coolify validate` | Dry-run check: verifies Doppler keys + Coolify API reachability. No mutations. |
 
 ## Install
@@ -110,7 +111,7 @@ A Claude Code skills repo that provides a standardized, domain-agnostic way to d
 - Linux or macOS
 - `bash` 4+, `python3` with `pyyaml`, `doppler` CLI (authenticated), `curl`, `ssh`
 - `~/.ssh/config` entry for the Coolify VPS (`ssh_host` alias in `coolify.json`)
-- `~/.claude/coolify.json` populated via `/setup-coolify init`
+- `~/.claude/coolify.json` populated via `/setup-coolify init_cicd`
 - Recommended: $6–12/mo VPS (2 vCPU, 4 GB RAM minimum); Ubuntu 22.04 LTS tested
 - Providers: Vultr, Hetzner, AWS EC2
 - Coolify install: `curl -fsSL https://cdn.coollabs.io/coolify/install.sh | sudo bash` (installs Docker + Coolify + systemd; 2–5 min)
@@ -124,7 +125,7 @@ A Claude Code skills repo that provides a standardized, domain-agnostic way to d
 - `COOLIFY_URL` — Coolify instance root URL (GitHub Actions secret, set via `gh secret set COOLIFY_URL`)
 - `GITHUB_TOKEN` — automatic; needs `packages: write` for GHCR push (set via repo Settings → Actions → General → Workflow permissions → Read and write)
 - `build.context` / `build.dockerfile` in `coolify.yaml` — optional; absent fields default to `.` and `./Dockerfile`. Existing files without the `build:` block continue to work.
-- `ssh_host` in `coolify.json` — required as of Phase 8; Phase 7 implementations defaulted to `v_cicd_stream` when absent (fallback removed). Run `/setup-coolify init` to populate.
+- `ssh_host` in `coolify.json` — required as of Phase 8; Phase 7 implementations defaulted to `v_cicd_stream` when absent (fallback removed). Run `/setup-coolify init_cicd` to populate.
 <!-- GSD:stack-end -->
 
 <!-- GSD:conventions-start source:CONVENTIONS.md -->
@@ -223,8 +224,8 @@ A Claude Code skills repo that provides a standardized, domain-agnostic way to d
 - Depends on: `COOLIFY_API_KEY` GitHub secret, Coolify app UUIDs embedded at generation time from `coolify_app_ids` in `coolify.yaml`
 - Used by: GitHub Actions on every push to `main`
 ## Data Flow
-- `coolify_app_ids` in `coolify.yaml` is the only mutable state owned by this skill — written by `provision.sh` after first successful run to cache UUIDs and avoid repeated API lookups
-- `~/.claude/coolify.json` is immutable from the skill's perspective (written only by `/setup-coolify init`)
+- `coolify_app_ids` in `coolify.yaml` is the only mutable state owned by this skill — written by `provision.sh` after a successful run, and read only by `generate-workflow.sh` to embed app UUIDs in `deploy.yml`. Provisioning itself never reads it back: every run re-resolves resources by name, which keeps re-runs robust against manual changes in the Coolify UI
+- `~/.claude/coolify.json` is immutable from the skill's perspective (written only by `/setup-coolify init_cicd`)
 - All other state lives in Coolify (app configs, deployment records) and Doppler (secret values, service tokens)
 ## Key Abstractions
 - Purpose: Decouples repo config (`coolify.yaml`) from machine credentials (`~/.claude/coolify.json`). `server: vultr-stream` in `coolify.yaml` maps to the full URL, API key, Doppler account, and SSH host in `coolify.json`
@@ -263,7 +264,7 @@ A Claude Code skills repo that provides a standardized, domain-agnostic way to d
 - Triggers: Claude Code user runs `/setup-coolify validate`
 - Responsibilities: Dry-run pre-flight — schema check, server alias lookup, Coolify API ping, Doppler key presence check. No mutations.
 - Location: `SKILL.md`
-- Triggers: Claude Code user runs `/setup-coolify init`
+- Triggers: Claude Code user runs `/setup-coolify init_cicd`
 - Responsibilities: Interactive prompts to create/update `~/.claude/coolify.json` for a new server alias. Claude executes this directly without calling a script.
 - Location: `init/init.sh`
 - Triggers: Human runs `bash ~/.claude/skills/setup-coolify/init/init.sh` from target repo root

@@ -67,9 +67,10 @@ ssh -o BatchMode=yes <ssh-alias> 'echo ok'  # SSH alias resolves
 
 | Form | Action |
 |------|--------|
-| `/setup-coolify` | Provision/update: ensures Doppler keys exist, upserts staging + production Coolify apps, syncs env vars, mounts Doppler-fallback volume, triggers deploys. Idempotent. |
+| `/setup-coolify` | Provision/update: ensures Doppler keys exist, upserts staging + production Coolify apps, syncs env vars, mounts Doppler-fallback volume. Does NOT deploy — the first deploy fires on push to `main` via the generated workflow. Idempotent. |
+| `/setup-coolify plan` | Read-only diff: reports CREATE / EXISTS / PATCH-would-change per resource (project, apps, volumes, tokens, DNS) without mutating anything. |
 | `/setup-coolify init_cicd` | Interactive setup of `~/.claude/coolify.json` for a new server alias. Validates existing credentials before prompting for replacement. |
-| `/setup-coolify init_app` | Bootstraps `coolify.yaml` + `.github/workflows/deploy.yml` in the current repo. Seeds dev+stg Doppler configs from `.env.local` when present. |}
+| `/setup-coolify init_app` | Bootstraps `coolify.yaml` + `.github/workflows/deploy.yml` in the current repo. Seeds dev+stg Doppler configs from `.env.local` when present. |
 | `/setup-coolify validate` | Dry-run: checks every `env_vars` key in coolify.yaml exists in Doppler staging AND production. Verifies Coolify API reachability. No mutations. |
 
 ---

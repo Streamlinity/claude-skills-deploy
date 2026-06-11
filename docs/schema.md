@@ -19,12 +19,19 @@ instance and Doppler account to use; all other config is repo-local.
 | `project` | string | Coolify project name (also used as Coolify-side project name). Conventionally the same as the repo name without the org prefix. | `skillmap` |
 | `server` | string | Alias matching a key in `~/.claude/coolify.json` `servers`. Determines Coolify URL and Doppler account routing. | `vultr-stream` |
 | `doppler_project` | string | Doppler project slug. Conventionally the same as `project` unless multiple repos share one Doppler project. | `skillmap` |
-| `registry.image` | string | GHCR image path (no tag). The CI workflow appends the git SHA tag at build time — never include it here. Format: `ghcr.io/<org>/<repo>`. | `ghcr.io/anatesan-stream/ai-upskilling` |
+| `registry.image` | string | GHCR image path (no tag). The CI workflow appends the git SHA tag at build time — never include it here. Format: `ghcr.io/<org>/<repo>`. | `ghcr.io/my-org/my-app` |
 | `environments.staging.domain` | string | FQDN for staging (no protocol, no trailing slash). | `skillmap-staging.cicd.streamlinity.com` |
 | `environments.staging.doppler_environment` | string | Doppler config name for staging. Doppler creates `stg` by default — only change if you renamed it. | `stg` |
 | `environments.production.domain` | string | FQDN for production (no protocol, no trailing slash). | `skillmap.cicd.streamlinity.com` |
 | `environments.production.doppler_environment` | string | Doppler config name for production. Doppler creates `prd` by default — only change if you renamed it. | `prd` |
-| `env_vars` | list of strings | Secret keys your app reads at runtime. All are injected at container start from Doppler — NOT baked into the image. Keys must exist in both `stg` and `prd` Doppler configs. | `[DATABASE_URL, ANTHROPIC_API_KEY]` |
+| `env_vars` | list of strings | Secret keys your app reads at runtime. All are injected at container start from Doppler — NOT baked into the image. Keys must exist in every environment's Doppler config. | `[DATABASE_URL, ANTHROPIC_API_KEY]` |
+
+**Additional environments:** `environments:` is a map — `staging` and `production` are
+required (the CI pipeline promotes staging → production), but you may add extra entries
+(e.g. `qa`, `preview`) with the same `domain` + `doppler_environment` fields. Extra
+environments are provisioned identically (Coolify app, Docker volume, Doppler service
+token, DNS record) but do not participate in the generated CI pipeline — deploy them
+manually via the Coolify UI or API.
 
 ### Optional Fields
 
@@ -36,6 +43,8 @@ instance and Doppler account to use; all other config is repo-local.
 | `coolify_app_ids.staging` | string \| null | `~` | Coolify application UUID for staging. Written by `provision.sh` after the first successful run. Do not edit manually. |
 | `coolify_app_ids.production` | string \| null | `~` | Coolify application UUID for production. Written by `provision.sh` after the first successful run. Do not edit manually. |
 | `deploy_server` | string | _empty_ | Optional. Name of a Coolify-registered server to deploy apps on. When absent, apps deploy on the Coolify host (server_name from coolify.json, defaulting to `localhost`). Set this when staging/production should run on a separately-registered VPS rather than the Coolify host. Example: `my-app-vps`. |
+| `port` | int | `3000` | TCP port your container exposes. `provision.sh` uses this for Coolify's health-check port binding. Set this when your app listens on any port other than 3000. | `8080` |
+| `health_check_path` | string | `/api/health` | HTTP path polled by Coolify's health check and by the CI smoke test. Change this if your app exposes health at a different URL (e.g. `/healthz`, `/health`, `/`). | `/healthz` |
 
 ### Optional DNS block
 
@@ -105,6 +114,12 @@ Add a `cloudflare_api_token` (or any field name matching `dns.credential_key`) t
 ```
 
 Then set `dns.credential_source: coolify_json` and `dns.credential_key: cloudflare_api_token` in `coolify.yaml`.
+
+**Token location (deprecation notice):** the token must live in the server entry
+matching the `server:` alias in `coolify.yaml` (`servers.<alias>.<credential_key>`).
+Two legacy lookup fallbacks — scanning all server entries, and a top-level key —
+still work but print a deprecation `WARN:` and will be removed: in a multi-server
+`coolify.json` they can silently resolve another org's token.
 
 ### Reserved (Not Yet Active)
 
@@ -301,8 +316,11 @@ Set these yourself when onboarding a new repo:
 
 These are set automatically by `provision.sh` after the first successful run:
 
-- `coolify_app_ids.staging` — Coolify application UUID, cached to avoid repeated lookups
-- `coolify_app_ids.production` — Coolify application UUID, cached to avoid repeated lookups
+- `coolify_app_ids.staging` — Coolify application UUID, consumed by `generate-workflow.sh` to embed in `deploy.yml`
+- `coolify_app_ids.production` — Coolify application UUID, consumed by `generate-workflow.sh` to embed in `deploy.yml`
+
+Provisioning never reads these back — every `provision.sh` run re-resolves apps by
+name, so the values exist purely as workflow-generation input.
 
 Do not edit these manually. If you delete or reprovision an app, `provision.sh` will
 overwrite them on the next run.

@@ -221,8 +221,12 @@ if [ -f "./.env.local" ]; then
         # Strip surrounding quotes if present
         val="${val#\"}" ; val="${val%\"}"
         val="${val#\'}"  ; val="${val%\'}"
-        doppler secrets set "${key}=${val}" --project "$DOPPLER_PROJECT" --config dev >/dev/null
-        doppler secrets set "${key}=${val}" --project "$DOPPLER_PROJECT" --config stg >/dev/null
+        # Pass via stdin (JSON) to avoid secret appearing in doppler's argv / ps output.
+        for _cfg in dev stg; do
+          python3 -c "import json,sys; sys.stdout.write(json.dumps({sys.argv[1]: sys.argv[2]}))" \
+            "$key" "$val" \
+            | doppler secrets upload --project "$DOPPLER_PROJECT" --config "$_cfg" - >/dev/null
+        done
         echo "  seeded $key -> dev, stg"
       fi
     done < "./.env.local"

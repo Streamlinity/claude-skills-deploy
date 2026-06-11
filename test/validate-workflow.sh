@@ -16,7 +16,6 @@
 
 set -euo pipefail
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 YAML_FILE="${1:-}"
 if [ -z "$YAML_FILE" ]; then

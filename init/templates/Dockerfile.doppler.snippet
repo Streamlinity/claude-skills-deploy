@@ -1,15 +1,26 @@
 # ============================================================================
 # Doppler CLI install + ENTRYPOINT — paste into your Dockerfile.
-# See: https://github.com/anatesan-stream/claude-skills-deploy/blob/main/docs/setup-guide.md
+# See: https://github.com/Streamlinity/claude-skills-deploy/blob/main/docs/setup-guide.md
 #
 # Place the RUN block in your final/runtime stage (after base image is chosen
 # and before USER nonroot if you set one — Doppler CLI needs to be on PATH).
 # ============================================================================
 
-# Install Doppler CLI (~3MB static binary, no dependencies)
-RUN curl -Ls --tlsv1.2 --proto "=https" -o /usr/local/bin/doppler \
-    https://cli.doppler.com/download/linux/amd64 \
- && chmod +x /usr/local/bin/doppler
+# Install Doppler CLI via the official signed APT package (Debian/Ubuntu base images).
+# The package is signed with Doppler's GPG key — no pinned SHA required.
+# To pin a specific CLI version replace 'doppler' with e.g. 'doppler=3.76.0'.
+# For Alpine/non-Debian images see: https://docs.doppler.com/docs/install-cli
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends apt-transport-https ca-certificates curl gnupg \
+ && curl -sLf --retry 3 --tlsv1.2 --proto "=https" \
+      "https://packages.doppler.com/public/cli/gpg.DE2A7741A397C129.key" \
+    | gpg --dearmor -o /usr/share/keyrings/doppler-archive-keyring.gpg \
+ && echo "deb [signed-by=/usr/share/keyrings/doppler-archive-keyring.gpg] \
+      https://packages.doppler.com/public/cli/deb/debian any-version main" \
+    > /etc/apt/sources.list.d/doppler-cli.list \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends doppler \
+ && rm -rf /var/lib/apt/lists/*
 
 # Persistent fallback cache — Coolify mounts /etc/doppler-cache as a Docker volume.
 # If Doppler API is unreachable at container start, the last cached secrets are used.

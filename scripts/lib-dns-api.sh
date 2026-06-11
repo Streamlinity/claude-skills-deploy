@@ -18,6 +18,49 @@ set -euo pipefail
 
 # ── Credential loading ─────────────────────────────────────────────────────────
 
+_dns_resolve_coolify_json_cred() {
+  # Resolve a credential key from coolify.json. Echoes "<source>|<value>" where
+  # source is: alias (servers.$SERVER_ALIAS — the only non-deprecated path),
+  # scan (any-alias fallback), top (legacy top-level key), or none.
+  # The key is passed via argv — never interpolated into Python source.
+  local cred_key="$1"
+  python3 - "$COOLIFY_REGISTRY" "$cred_key" <<'PY' 2>/dev/null || echo "none|"
+import json, sys, os
+registry, key = sys.argv[1], sys.argv[2]
+d = json.load(open(registry))
+servers = d.get('servers', {})
+current = os.environ.get('SERVER_ALIAS', '')
+if current and current in servers:
+    val = servers[current].get(key, '')
+    if val:
+        print(f'alias|{val}'); sys.exit(0)
+for alias, srv in servers.items():
+    val = srv.get(key, '')
+    if val:
+        print(f'scan|{val}'); sys.exit(0)
+val = d.get(key, '')
+print(f'top|{val}' if val else 'none|')
+PY
+}
+
+_dns_warn_cred_fallback() {
+  # DEPRECATED fallbacks (Fable 6.5): the any-alias scan and the top-level key
+  # can silently pick up the wrong org's token in a multi-server coolify.json.
+  # They keep working for now but warn loudly; a future release removes them.
+  local source="$1" cred_key="$2" caller="$3"
+  case "$source" in
+    scan)
+      echo "WARN: $caller: '$cred_key' resolved by scanning ALL server entries in coolify.json (DEPRECATED)." >&2
+      echo "      In a multi-server setup this can silently use the wrong org's token." >&2
+      echo "      Fix: move '$cred_key' into servers.${SERVER_ALIAS:-<your-alias>} — this fallback will be removed." >&2
+      ;;
+    top)
+      echo "WARN: $caller: '$cred_key' resolved from the top-level of coolify.json (DEPRECATED legacy location)." >&2
+      echo "      Fix: move '$cred_key' into servers.${SERVER_ALIAS:-<your-alias>} — this fallback will be removed." >&2
+      ;;
+  esac
+}
+
 dns_load_credentials() {
   # Parse dns: block from coolify.yaml and export DNS_PROVIDER, DNS_ZONE_NAME,
   # DNS_API_TOKEN. Hard-fails with named-field messages on any missing value.
@@ -76,25 +119,10 @@ print(f'DNS_CREDENTIAL_KEY={cred_key}')
       if [ ! -f "$COOLIFY_REGISTRY" ]; then
         echo "ERROR: dns_load_credentials: $COOLIFY_REGISTRY not found" >&2; exit 1
       fi
-      DNS_API_TOKEN=$(python3 -c "
-import json, sys
-d = json.load(open('$COOLIFY_REGISTRY'))
-servers = d.get('servers', {})
-# 1. Prefer the current server alias (SERVER_ALIAS env var set by coolify_load_server).
-import os
-current = os.environ.get('SERVER_ALIAS', '')
-if current and current in servers:
-    val = servers[current].get('$DNS_CREDENTIAL_KEY', '')
-    if val:
-        print(val); sys.exit(0)
-# 2. Scan all server entries (backwards-compatible fallback for single-server setups).
-for alias, srv in servers.items():
-    val = srv.get('$DNS_CREDENTIAL_KEY', '')
-    if val:
-        print(val); sys.exit(0)
-# 3. Top-level key (legacy).
-print(d.get('$DNS_CREDENTIAL_KEY', ''))
-" 2>/dev/null || echo "")
+      local _resolved
+      _resolved=$(_dns_resolve_coolify_json_cred "$DNS_CREDENTIAL_KEY")
+      DNS_API_TOKEN="${_resolved#*|}"
+      _dns_warn_cred_fallback "${_resolved%%|*}" "$DNS_CREDENTIAL_KEY" "dns_load_credentials"
       if [ -z "$DNS_API_TOKEN" ]; then
         echo "ERROR: dns_load_credentials: '$DNS_CREDENTIAL_KEY' not found in $COOLIFY_REGISTRY" >&2
         exit 1
@@ -129,22 +157,10 @@ dns_load_credentials_from_env() {
       fi
       ;;
     coolify_json)
-      DNS_API_TOKEN=$(python3 -c "
-import json, sys, os
-d = json.load(open('$COOLIFY_REGISTRY'))
-servers = d.get('servers', {})
-# 1. Prefer current server alias.
-current = os.environ.get('SERVER_ALIAS', '')
-if current and current in servers:
-    val = servers[current].get('${DNS_CREDENTIAL_KEY}', '')
-    if val: print(val); sys.exit(0)
-# 2. Scan all entries.
-for alias, srv in servers.items():
-    val = srv.get('${DNS_CREDENTIAL_KEY}', '')
-    if val: print(val); sys.exit(0)
-# 3. Top-level.
-print(d.get('${DNS_CREDENTIAL_KEY}', ''))
-" 2>/dev/null || echo "")
+      local _resolved
+      _resolved=$(_dns_resolve_coolify_json_cred "${DNS_CREDENTIAL_KEY}")
+      DNS_API_TOKEN="${_resolved#*|}"
+      _dns_warn_cred_fallback "${_resolved%%|*}" "${DNS_CREDENTIAL_KEY}" "dns_load_credentials_from_env"
       if [ -z "$DNS_API_TOKEN" ]; then
         echo "ERROR: dns_load_credentials_from_env: '${DNS_CREDENTIAL_KEY}' not found in $COOLIFY_REGISTRY" >&2; exit 1
       fi
@@ -163,6 +179,7 @@ dns_check_credentials() {
   local yaml_path="$1"
   if [ ! -f "$yaml_path" ]; then return 1; fi
 
+  # shellcheck disable=SC2034  # all four assigned via eval below; declared local to avoid global leak
   local dns_provider dns_zone_name dns_cred_source dns_cred_key
   eval "$(python3 -c "
 import yaml, sys
@@ -221,15 +238,17 @@ print(d.get('$dns_cred_key', ''))
 
 dns_cf_curl() {
   # Thin curl wrapper for Cloudflare API. DNS_API_TOKEN must be set.
+  # --retry covers transient failures only (408/429/5xx, timeouts, refused
+  # connections) — permanent 4xx errors still fail on the first attempt.
   local method="$1" path="$2" body="${3:-}"
   local url="https://api.cloudflare.com/client/v4${path}"
   if [ -n "$body" ]; then
-    curl -sfS -X "$method" "$url" \
+    curl -sfS --retry 3 --retry-delay 2 --retry-connrefused -X "$method" "$url" \
       -H "Authorization: Bearer ${DNS_API_TOKEN}" \
       -H "Content-Type: application/json" \
       -d "$body"
   else
-    curl -sfS -X "$method" "$url" \
+    curl -sfS --retry 3 --retry-delay 2 --retry-connrefused -X "$method" "$url" \
       -H "Authorization: Bearer ${DNS_API_TOKEN}"
   fi
 }
@@ -296,7 +315,7 @@ print(d.get('result', {}).get('id', ''))
 dns_cf_delete_record() {
   # Delete a DNS record by zone_id + record_id. Tolerates 404 (already gone).
   local zone_id="$1" record_id="$2"
-  curl -sfS -X DELETE \
+  curl -sfS --retry 3 --retry-delay 2 --retry-connrefused -X DELETE \
     "https://api.cloudflare.com/client/v4/zones/${zone_id}/dns_records/${record_id}" \
     -H "Authorization: Bearer ${DNS_API_TOKEN}" \
     -H "Content-Type: application/json" \

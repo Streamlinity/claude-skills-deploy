@@ -815,10 +815,9 @@ print(f\"_dns_provider_val={provider}\"  )
 ")"
 
 if [ "${_dns_enabled:-false}" = "true" ]; then
-  DNS_PROVIDER="$_dns_provider_val"
-  DNS_ZONE_NAME_E2E="$_dns_zone_name"
-  DNS_CREDENTIAL_SOURCE_E2E="$_dns_cred_source"
-  DNS_CREDENTIAL_KEY_E2E="$_dns_cred_key"
+  # shellcheck disable=SC2154  # _dns_* vars assigned via eval of the python block above
+  DNS_PROVIDER="$_dns_provider_val" DNS_ZONE_NAME_E2E="$_dns_zone_name" \
+    DNS_CREDENTIAL_SOURCE_E2E="$_dns_cred_source" DNS_CREDENTIAL_KEY_E2E="$_dns_cred_key"
   export DNS_PROVIDER DNS_ZONE_NAME="$DNS_ZONE_NAME_E2E"
   export DOPPLER_PROJECT="$TEST_PROJECT" DOPPLER_ENV="stg"
   dns_load_credentials "$YAML_PATH"
@@ -893,12 +892,20 @@ pass "deploy finished (took $(($(date +%s) - START_TS))s)"
 
 step "Step 8: Verify app status via Coolify API"
 
-APP_STATUS=$(coolify_curl GET "/applications/$STG_APP_UUID" 2>/dev/null \
-  | python3 -c "
+# Coolify's status field lags the actual container state for a few seconds after
+# a deploy finishes (container restart window) — poll briefly instead of one-shot.
+APP_STATUS="unknown"
+for _attempt in 1 2 3 4 5 6; do
+  APP_STATUS=$(coolify_curl GET "/applications/$STG_APP_UUID" 2>/dev/null \
+    | python3 -c "
 import json,sys
 try: print(json.load(sys.stdin).get('status','unknown'))
 except: print('unknown')
 " 2>/dev/null || echo "unknown")
+  [[ "$APP_STATUS" == running* ]] && break
+  echo "  [attempt $_attempt/6] staging app status: $APP_STATUS — retrying in 5s"
+  sleep 5
+done
 
 echo "  staging app status: $APP_STATUS"
 if [[ "$APP_STATUS" == running* ]]; then
@@ -993,18 +1000,66 @@ done
 
 pass "production deploy finished (took $(($(date +%s) - START_TS))s)"
 
-PRD_STATUS=$(coolify_curl GET "/applications/$PRD_APP_UUID" 2>/dev/null \
-  | python3 -c "
+# Same status-lag tolerance as the staging check (Step 8).
+PRD_STATUS="unknown"
+for _attempt in 1 2 3 4 5 6; do
+  PRD_STATUS=$(coolify_curl GET "/applications/$PRD_APP_UUID" 2>/dev/null \
+    | python3 -c "
 import json,sys
 try: print(json.load(sys.stdin).get('status','unknown'))
 except: print('unknown')
 " 2>/dev/null || echo "unknown")
+  [[ "$PRD_STATUS" == running* ]] && break
+  echo "  [attempt $_attempt/6] production app status: $PRD_STATUS — retrying in 5s"
+  sleep 5
+done
 
 echo "  production app status: $PRD_STATUS"
 if [[ "$PRD_STATUS" == running* ]]; then
   pass "production app is running (status: $PRD_STATUS)"
 else
   fail "production app status is '$PRD_STATUS' (expected 'running' or 'running:healthy')"
+fi
+
+# ── Step 11: HTTP smoke test — production ─────────────────────────────────────
+
+step "Step 11: HTTP smoke test — https://${PROD_DOMAIN} (timeout: ${SMOKE_TIMEOUT}s)"
+
+START_TS=$(date +%s)
+PRD_SMOKE_PASSED=false
+
+while true; do
+  ELAPSED=$(($(date +%s) - START_TS))
+
+  HEALTH_CODE=$(curl -sf -o /dev/null -w "%{http_code}" \
+    --max-time 10 \
+    "https://${PROD_DOMAIN}/api/health" 2>/dev/null || echo "000")
+
+  echo "  [${ELAPSED}s] /api/health → HTTP $HEALTH_CODE"
+
+  if [ "$HEALTH_CODE" = "200" ]; then
+    BODY=$(curl -sf --max-time 10 "https://${PROD_DOMAIN}/" 2>/dev/null || echo "")
+    if echo "$BODY" | grep -q "claude-skills-deploy-e2e-ok"; then
+      PRD_SMOKE_PASSED=true
+      break
+    else
+      echo "  /api/health returned 200 but root page body check failed — retrying"
+    fi
+  fi
+
+  if (( ELAPSED > SMOKE_TIMEOUT )); then
+    echo "  smoke test timed out after ${SMOKE_TIMEOUT}s"
+    break
+  fi
+  sleep 10
+done
+
+if $PRD_SMOKE_PASSED; then
+  pass "smoke test: https://${PROD_DOMAIN}/api/health returned 200 + body check passed"
+else
+  fail "smoke test: could not reach https://${PROD_DOMAIN} within ${SMOKE_TIMEOUT}s"
+  echo "  This may be a Let's Encrypt cert delay. The deploy itself finished successfully."
+  echo "  Verify manually: curl https://${PROD_DOMAIN}/api/health"
 fi
 
 # ── Write test report ─────────────────────────────────────────────────────────
@@ -1038,7 +1093,7 @@ echo ""
 echo "  DNS records created"
 echo "  ────────────────────────────────────────────────────────────────────────────"
 if [ ${#DNS_RECORDS[@]} -gt 0 ]; then
-  _vps="${VPS_IP:-149.248.4.46}"
+  _vps="${VPS_IP:-<unknown>}"
   _args=("$_vps")
   for entry in "${DNS_RECORDS[@]}"; do _args+=("$entry"); done
   python3 -c "
