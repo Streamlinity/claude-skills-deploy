@@ -6,6 +6,9 @@
 #   3. Every env_vars key exists in Doppler staging AND production (non-empty, non-placeholder)
 #   4. Coolify API reachable: GET /projects returns 200
 # On failure: prints MISSING/INVALID lines and exits 1. No Coolify mutations.
+#
+# Flag: --seed-from-env   Fill missing Doppler keys from .env.local / .env.production
+#                         (the only mode that mutates Doppler — off by default).
 
 set -euo pipefail
 
@@ -14,28 +17,23 @@ source "$SCRIPT_DIR/lib-coolify-api.sh"
 source "$SCRIPT_DIR/lib-doppler-api.sh"
 source "$SCRIPT_DIR/lib-dns-api.sh"
 
-YAML_PATH="${1:-./coolify.yaml}"
+SEED_FROM_ENV=false
+YAML_PATH=""
+for _arg in "$@"; do
+  case "$_arg" in
+    --seed-from-env) SEED_FROM_ENV=true ;;
+    *)               YAML_PATH="$_arg" ;;
+  esac
+done
+YAML_PATH="${YAML_PATH:-./coolify.yaml}"
 
 if [ ! -f "$YAML_PATH" ]; then
   echo "ERROR: $YAML_PATH not found" >&2
   exit 1
 fi
 
-# Parse coolify.yaml fields into shell vars
-eval "$(python3 -c "
-import yaml,sys
-d=yaml.safe_load(open('$YAML_PATH'))
-print(f\"PROJECT='{d.get('project','')}'\")
-print(f\"DEPLOY_SERVER='{d.get('deploy_server','')}'\")
-print(f\"SERVER='{d.get('server','')}'\")
-print(f\"DOPPLER_PROJECT='{d.get('doppler_project','')}'\")
-print(f\"REGISTRY_IMAGE='{d.get('registry',{}).get('image','')}'\")
-print(f\"STAGING_DOMAIN='{d.get('environments',{}).get('staging',{}).get('domain','')}'\")
-print(f\"STAGING_DOPPLER='{d.get('environments',{}).get('staging',{}).get('doppler_environment','')}'\")
-print(f\"PROD_DOMAIN='{d.get('environments',{}).get('production',{}).get('domain','')}'\")
-print(f\"PROD_DOPPLER='{d.get('environments',{}).get('production',{}).get('doppler_environment','')}'\")
-print(f\"ENV_VARS='{' '.join(d.get('env_vars',[]))}'\")
-")"
+# Parse coolify.yaml fields into shell vars — safe extraction via lib-config.py
+eval "$(python3 "$SCRIPT_DIR/lib-config.py" emit-yaml-vars "$YAML_PATH")"
 
 ERRORS=0
 fail() { echo "FAIL: $*" >&2; ERRORS=$((ERRORS+1)); }
@@ -63,11 +61,7 @@ fi
 doppler_load_account "$SERVER"
 
 # Verify ssh_host is set in the coolify.json server entry (required by provision.sh)
-SSH_HOST_CHECK=$(python3 -c "
-import json
-d=json.load(open('$HOME/.claude/coolify.json'))
-print(d.get('servers',{}).get('$SERVER',{}).get('ssh_host',''))
-")
+SSH_HOST_CHECK=$(python3 "$SCRIPT_DIR/lib-config.py" get-json-field "$HOME/.claude/coolify.json" "$SERVER" ssh_host)
 if [ -z "$SSH_HOST_CHECK" ]; then
   fail "INVALID:coolify.json:servers.$SERVER.ssh_host (missing — required by provision.sh)"
   echo "" >&2
@@ -151,11 +145,8 @@ fi
 # P04 gap: when deploy_server is absent, verify the effective Coolify server ("localhost" or
 # server_name from coolify.json) is registered — provision.sh hard-fails if it is missing.
 if [ -z "${DEPLOY_SERVER:-}" ]; then
-  EFFECTIVE_SERVER=$(python3 -c "
-import json
-d=json.load(open('$HOME/.claude/coolify.json'))
-print(d.get('servers',{}).get('$SERVER',{}).get('server_name','localhost'))
-")
+  EFFECTIVE_SERVER=$(python3 "$SCRIPT_DIR/lib-config.py" get-json-field "$HOME/.claude/coolify.json" "$SERVER" server_name)
+  EFFECTIVE_SERVER="${EFFECTIVE_SERVER:-localhost}"
   EFFECTIVE_UUID=$(coolify_get_server_uuid "$EFFECTIVE_SERVER")
   if [ -z "$EFFECTIVE_UUID" ]; then
     AVAILABLE=$(coolify_curl GET "/servers" 2>/dev/null | python3 -c "
@@ -171,11 +162,7 @@ print(', '.join(s.get('name','') for s in srvs if s.get('name')))
 fi
 
 # MSRV-07: deploy_server and deploy_ssh_host must be specified together or skipped together.
-DEPLOY_SSH_HOST_CHECK=$(python3 -c "
-import json
-d=json.load(open('$HOME/.claude/coolify.json'))
-print(d.get('servers',{}).get('$SERVER',{}).get('deploy_ssh_host',''))
-")
+DEPLOY_SSH_HOST_CHECK=$(python3 "$SCRIPT_DIR/lib-config.py" get-json-field "$HOME/.claude/coolify.json" "$SERVER" deploy_ssh_host)
 if [ -n "${DEPLOY_SERVER:-}" ] && [ -z "$DEPLOY_SSH_HOST_CHECK" ]; then
   fail "INVALID:coolify.json:servers.$SERVER.deploy_ssh_host (missing — required when deploy_server is set)"
   echo "" >&2
@@ -200,11 +187,7 @@ fi
 # P07/P08 gap: validate deploy_vps_ip from coolify.json if statically configured.
 # provision.sh hard-fails (P07) when it cannot resolve the VPS IP after all 4 steps;
 # it also hard-fails (P08) when the resolved value is not a valid IPv4 address.
-DEPLOY_VPS_IP_CHECK=$(python3 -c "
-import json
-d=json.load(open('$HOME/.claude/coolify.json'))
-print(d.get('servers',{}).get('$SERVER',{}).get('deploy_vps_ip',''))
-")
+DEPLOY_VPS_IP_CHECK=$(python3 "$SCRIPT_DIR/lib-config.py" get-json-field "$HOME/.claude/coolify.json" "$SERVER" deploy_vps_ip)
 if [ -n "$DEPLOY_VPS_IP_CHECK" ]; then
   if ! python3 -c "
 import re,sys
@@ -297,24 +280,32 @@ _fill_missing_from_env() {
   return 0
 }
 
-# Determine which .env files are present relative to the yaml's directory
+# Gap-fill from .env files — ONLY when --seed-from-env is passed.
+# Plain `validate` is a genuine dry run; this is the only mutation path.
 YAML_DIR="$(cd "$(dirname "$YAML_PATH")" && pwd)"
 ENV_LOCAL="${YAML_DIR}/.env.local"
 ENV_PROD="${YAML_DIR}/.env.production"
 
-if [ -f "$ENV_LOCAL" ] || [ -f "$ENV_PROD" ]; then
-  echo ""
-  echo "validate: .env file gap-fill — checking for missing Doppler keys"
-  [ -f "$ENV_LOCAL" ] && echo "  .env.local   → $DOPPLER_PROJECT/$STAGING_DOPPLER + dev"
-  [ -f "$ENV_PROD"  ] && echo "  .env.production → $DOPPLER_PROJECT/$PROD_DOPPLER"
-
-  if [ -f "$ENV_LOCAL" ]; then
-    _fill_missing_from_env "$ENV_LOCAL" "$DOPPLER_PROJECT" "$STAGING_DOPPLER" "dev"
+if [ "$SEED_FROM_ENV" = "true" ]; then
+  if [ -f "$ENV_LOCAL" ] || [ -f "$ENV_PROD" ]; then
+    echo ""
+    echo "validate: --seed-from-env — filling missing Doppler keys from .env files"
+    [ -f "$ENV_LOCAL" ] && echo "  .env.local   → $DOPPLER_PROJECT/$STAGING_DOPPLER + dev"
+    [ -f "$ENV_PROD"  ] && echo "  .env.production → $DOPPLER_PROJECT/$PROD_DOPPLER"
+    if [ -f "$ENV_LOCAL" ]; then
+      _fill_missing_from_env "$ENV_LOCAL" "$DOPPLER_PROJECT" "$STAGING_DOPPLER" "dev"
+    fi
+    if [ -f "$ENV_PROD" ]; then
+      _fill_missing_from_env "$ENV_PROD" "$DOPPLER_PROJECT" "$PROD_DOPPLER"
+    fi
+    echo ""
+  else
+    echo "validate: --seed-from-env passed but no .env.local or .env.production found — skipping"
   fi
-  if [ -f "$ENV_PROD" ]; then
-    _fill_missing_from_env "$ENV_PROD" "$DOPPLER_PROJECT" "$PROD_DOPPLER"
+else
+  if [ -f "$ENV_LOCAL" ] || [ -f "$ENV_PROD" ]; then
+    echo "validate: .env file(s) found — run with --seed-from-env to fill missing Doppler keys"
   fi
-  echo ""
 fi
 
 # Verify every env_vars key exists in BOTH staging and production with non-placeholder values
@@ -346,32 +337,11 @@ if [ "$ERRORS" -gt 0 ]; then
 fi
 
 # Validate DNS block (if present and not provider: none)
-DNS_VALIDATION=$(python3 -c "
-import yaml, sys
-d = yaml.safe_load(open('$YAML_PATH'))
-dns = d.get('dns', {})
-provider = dns.get('provider', 'none')
-if not provider or provider == 'none':
-    print('skip')
-    sys.exit(0)
-zone_name    = dns.get('zone_name', '')
-cred_source  = dns.get('credential_source', 'doppler')
-cred_key     = dns.get('credential_key', '')
-staging_dom  = d.get('environments',{}).get('staging',{}).get('domain','')
-prod_dom     = d.get('environments',{}).get('production',{}).get('domain','')
-print(f'provider={provider}')
-print(f'zone_name={zone_name}')
-print(f'cred_source={cred_source}')
-print(f'cred_key={cred_key}')
-print(f'staging_domain={staging_dom}')
-print(f'prod_domain={prod_dom}')
-")
+eval "$(python3 "$SCRIPT_DIR/lib-config.py" emit-dns-vars "$YAML_PATH")"
 
-if [ "$DNS_VALIDATION" = "skip" ]; then
+if [ "${DNS_PROVIDER:-none}" = "none" ]; then
   echo "validate: dns: skipped (provider: none or block absent)"
 else
-  eval "$DNS_VALIDATION"
-
   if [ -z "${zone_name:-}" ]; then
     fail "INVALID:coolify.yaml:dns.zone_name (empty — required when dns.provider is not none)"
   fi

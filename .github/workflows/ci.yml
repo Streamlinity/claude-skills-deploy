@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  lint:
+    name: Shell lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install shellcheck
+        run: sudo apt-get install -y shellcheck
+      - name: shellcheck all scripts
+        run: |
+          find scripts init test -name '*.sh' | xargs shellcheck --severity=warning
+      - name: bash syntax check
+        run: |
+          find scripts init test -name '*.sh' | xargs -I{} bash -n {}
+
+  test-offline:
+    name: Offline tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install pyyaml
+        run: pip install pyyaml
+      # init/test_init.sh excluded — prompt sequence out of sync with current init.sh (pre-existing)
+      - name: verify-s01-args.sh
+        run: bash test/verify-s01-args.sh
+      - name: validate-workflow.sh (example output)
+        run: |
+          # Generate a workflow from the example coolify.yaml and validate its structure.
+          # The example uses server alias 'vultr-stream' and has provisioned UUIDs, so
+          # generate-workflow.sh needs a matching coolify.json entry.
+          cat > /tmp/test-coolify.json << 'EOF'
+          {"servers":{"vultr-stream":{"url":"https://coolify.example.com","api_key":"test-key","doppler_account":"test","ssh_host":"test-host"}}}
+          EOF
+          COOLIFY_REGISTRY=/tmp/test-coolify.json \
+            bash scripts/generate-workflow.sh examples/skillmap/coolify.yaml
+          bash test/validate-workflow.sh examples/skillmap/.github/workflows/deploy.yml
+          rm -rf examples/skillmap/.github
+      - name: lib-config.py unit check
+        run: |
+          python3 scripts/lib-config.py emit-yaml-vars examples/skillmap/coolify.yaml
+          python3 scripts/lib-config.py emit-yaml-workflow-vars examples/skillmap/coolify.yaml
+          python3 scripts/lib-config.py emit-dns-vars examples/skillmap/coolify.yaml

@@ -16,18 +16,23 @@ coolify_load_server() {
     return 1
   fi
   local exists
-  exists=$(python3 -c "
-import json,sys
-d=json.load(open('$COOLIFY_REGISTRY'))
-print('yes' if d.get('servers',{}).get('$alias') else 'no')
-")
+  exists=$(python3 - "$COOLIFY_REGISTRY" "$alias" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1]))
+print('yes' if d.get('servers', {}).get(sys.argv[2]) else 'no')
+PY
+)
   if [ "$exists" != "yes" ]; then
     echo "ERROR: server alias '$alias' not found in $COOLIFY_REGISTRY" >&2
     return 1
   fi
-  COOLIFY_URL=$(python3 -c "import json; print(json.load(open('$COOLIFY_REGISTRY'))['servers']['$alias']['url'])")
-  COOLIFY_API_KEY=$(python3 -c "import json; print(json.load(open('$COOLIFY_REGISTRY'))['servers']['$alias']['api_key'])")
-  COOLIFY_DOPPLER_ACCOUNT=$(python3 -c "import json; print(json.load(open('$COOLIFY_REGISTRY'))['servers']['$alias'].get('doppler_account',''))")
+  read -r COOLIFY_URL COOLIFY_API_KEY COOLIFY_DOPPLER_ACCOUNT < <(python3 - "$COOLIFY_REGISTRY" "$alias" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1]))
+s = d['servers'][sys.argv[2]]
+print(s['url'], s['api_key'], s.get('doppler_account', ''))
+PY
+)
   # Export SERVER_ALIAS so dns_load_credentials subprocesses can scope credential
   # lookups to the correct entry in coolify.json (avoids first-match-wins across
   # multi-server setups).
@@ -51,11 +56,15 @@ coolify_curl() {
 
 coolify_get_project_uuid() {
   local name="$1"
-  coolify_curl GET "/projects" | python3 -c "
-import json,sys
-for p in json.load(sys.stdin):
-    if p.get('name')=='$name': print(p.get('uuid','')); break
-"
+  coolify_curl GET "/projects" | python3 - "$name" <<'PY'
+import json, sys
+name = sys.argv[1]
+data = json.load(sys.stdin)
+items = data if isinstance(data, list) else data.get('data', [])
+for p in items:
+    if p.get('name') == name:
+        print(p.get('uuid', '')); break
+PY
 }
 
 coolify_upsert_project() {
@@ -70,11 +79,15 @@ coolify_upsert_project() {
 
 coolify_get_server_uuid() {
   local name="$1"
-  coolify_curl GET "/servers" | python3 -c "
-import json,sys
-for s in json.load(sys.stdin):
-    if s.get('name')=='$name': print(s.get('uuid','')); break
-"
+  coolify_curl GET "/servers" | python3 - "$name" <<'PY'
+import json, sys
+name = sys.argv[1]
+data = json.load(sys.stdin)
+items = data if isinstance(data, list) else data.get('data', [])
+for s in items:
+    if s.get('name') == name:
+        print(s.get('uuid', '')); break
+PY
 }
 
 coolify_get_destination_uuid() {
@@ -132,11 +145,15 @@ for x in items:
 
 coolify_find_app_by_name() {
   local name="$1"
-  coolify_curl GET "/applications" | python3 -c "
-import json,sys
-for a in json.load(sys.stdin):
-    if a.get('name')=='$name': print(a.get('uuid','')); break
-"
+  coolify_curl GET "/applications" | python3 - "$name" <<'PY'
+import json, sys
+name = sys.argv[1]
+data = json.load(sys.stdin)
+items = data if isinstance(data, list) else data.get('data', [])
+for a in items:
+    if a.get('name') == name:
+        print(a.get('uuid', '')); break
+PY
 }
 
 coolify_set_app_envs() {
