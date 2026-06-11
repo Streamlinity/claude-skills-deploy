@@ -38,7 +38,7 @@ rm -rf "$T1_DIR"
 T2_DIR=$(mktemp -d)
 (
   cd "$T2_DIR"
-  printf 'testproj\nvultr-stream\n\nghcr.io/org/test\ntest-staging.example.com\ntest.example.com\n\n\nDATABASE_URL OPENAI_API_KEY\n' \
+  printf 'testproj\nvultr-stream\n\n\nghcr.io/org/test\ntest-staging.example.com\ntest.example.com\nnone\n\n\nDATABASE_URL OPENAI_API_KEY\n' \
     | bash "$INIT_SH" > /dev/null 2>&1
 )
 if python3 -c "import yaml; yaml.safe_load(open('$T2_DIR/coolify.yaml'))" 2>/dev/null; then
@@ -52,7 +52,7 @@ rm -rf "$T2_DIR"
 T3_DIR=$(mktemp -d)
 (
   cd "$T3_DIR"
-  printf 'testproj\nvultr-stream\n\nghcr.io/org/test\ntest-staging.example.com\ntest.example.com\n\n\nDATABASE_URL\n' \
+  printf 'testproj\nvultr-stream\n\n\nghcr.io/org/test\ntest-staging.example.com\ntest.example.com\nnone\n\n\nDATABASE_URL\n' \
     | bash "$INIT_SH" > /dev/null 2>&1
 )
 if [ -f "$T3_DIR/coolify.yaml" ] && ! grep -q '{{' "$T3_DIR/coolify.yaml"; then
@@ -67,7 +67,7 @@ T4_DIR=$(mktemp -d)
 (
   cd "$T4_DIR"
   # Accept defaults for build.context and build.dockerfile (press Enter twice)
-  printf 'testproj\nvultr-stream\n\nghcr.io/org/test\ntest-staging.example.com\ntest.example.com\n\n\nDATABASE_URL\n' \
+  printf 'testproj\nvultr-stream\n\n\nghcr.io/org/test\ntest-staging.example.com\ntest.example.com\nnone\n\n\nDATABASE_URL\n' \
     | bash "$INIT_SH" > /dev/null 2>&1
 )
 if python3 -c "
@@ -87,7 +87,7 @@ rm -rf "$T4_DIR"
 T5_DIR=$(mktemp -d)
 (
   cd "$T5_DIR"
-  printf 'testproj\nvultr-stream\n\nghcr.io/org/test\ntest-staging.example.com\ntest.example.com\n\n\nDATABASE_URL ANTHROPIC_API_KEY\n' \
+  printf 'testproj\nvultr-stream\n\n\nghcr.io/org/test\ntest-staging.example.com\ntest.example.com\nnone\n\n\nDATABASE_URL ANTHROPIC_API_KEY\n' \
     | bash "$INIT_SH" > /dev/null 2>&1
 )
 if python3 -c "
@@ -108,7 +108,7 @@ rm -rf "$T5_DIR"
 T6_DIR=$(mktemp -d)
 (
   cd "$T6_DIR"
-  printf 'testproj\nvultr-stream\n\nghcr.io/org/test\ntest-staging.example.com\ntest.example.com\n\n\nDATABASE_URL\n' \
+  printf 'testproj\nvultr-stream\n\n\nghcr.io/org/test\ntest-staging.example.com\ntest.example.com\nnone\n\n\nDATABASE_URL\n' \
     | bash "$INIT_SH" > /dev/null 2>&1
 )
 if [ -f "$T6_DIR/.github/workflows/deploy.yml" ] && python3 -c "import yaml; yaml.safe_load(open('$T6_DIR/.github/workflows/deploy.yml'))" 2>/dev/null; then
