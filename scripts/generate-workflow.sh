@@ -27,22 +27,7 @@ YAML_PATH="${1:-./coolify.yaml}"
 OUT_DIR="$(cd "$(dirname "$YAML_PATH")" && pwd)/.github/workflows"
 OUT_PATH="$OUT_DIR/deploy.yml"
 
-eval "$(python3 -c "
-import yaml
-d=yaml.safe_load(open('$YAML_PATH'))
-print(f\"PROJECT='{d.get('project','')}'\")
-print(f\"SERVER_ALIAS='{d.get('server','')}'\")
-print(f\"REGISTRY_IMAGE='{d.get('registry',{}).get('image','')}'\")
-print(f\"RETENTION='{d.get('registry',{}).get('retention_tags',5)}'\")
-print(f\"STAGING_DOMAIN='{d.get('environments',{}).get('staging',{}).get('domain','')}'\")
-print(f\"PROD_DOMAIN='{d.get('environments',{}).get('production',{}).get('domain','')}'\")
-print(f\"BUILD_CONTEXT='{d.get('build',{}).get('context','.')}'\"  )
-print(f\"BUILD_DOCKERFILE='{d.get('build',{}).get('dockerfile','./Dockerfile')}'\"  )
-staging = d.get('coolify_app_ids',{}).get('staging') or ''
-prod = d.get('coolify_app_ids',{}).get('production') or ''
-print(f\"STAGING_APP_UUID='{staging}'\")
-print(f\"PROD_APP_UUID='{prod}'\")
-")"
+eval "$(python3 "$SCRIPT_DIR/lib-config.py" emit-yaml-workflow-vars "$YAML_PATH")"
 
 # When called from init.sh (before /setup-coolify provisioning), app IDs are null (~).
 # Use placeholder strings so the workflow file is still generated; the actual UUIDs
@@ -135,7 +120,7 @@ jobs:
         run: |
           for i in \$(seq 1 12); do
             sleep 30
-            if curl -sfS "https://\$STAGING_DOMAIN/api/health" -o /dev/null; then
+            if curl -sfS "https://\$STAGING_DOMAIN$HEALTH_CHECK_PATH" -o /dev/null; then
               echo "Staging healthy on attempt \$i"; exit 0
             fi
             echo "Wait \$i/12 ..."

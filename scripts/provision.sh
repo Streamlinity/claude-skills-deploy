@@ -19,28 +19,8 @@ if ! bash "$SCRIPT_DIR/validate.sh" "$YAML_PATH"; then
   exit 1
 fi
 
-# Parse coolify.yaml
-eval "$(python3 -c "
-import yaml
-d=yaml.safe_load(open('$YAML_PATH'))
-print(f\"PROJECT='{d.get('project','')}'\")
-print(f\"DEPLOY_SERVER='{d.get('deploy_server','')}'\")
-print(f\"SERVER_ALIAS='{d.get('server','')}'\")
-print(f\"DOPPLER_PROJECT='{d.get('doppler_project','')}'\")
-img=d.get('registry',{}).get('image','')
-last=img.rsplit('/',1)[-1]
-name,tag=(img.rsplit(':',1) if ':' in last else (img,'latest'))
-print(f\"REGISTRY_IMAGE='{img}'\")
-print(f\"REGISTRY_IMAGE_NAME='{name}'\")
-print(f\"REGISTRY_IMAGE_TAG='{tag}'\")
-print(f\"STAGING_DOMAIN='{d.get('environments',{}).get('staging',{}).get('domain','')}'\")
-print(f\"STAGING_DOPPLER='{d.get('environments',{}).get('staging',{}).get('doppler_environment','')}'\")
-print(f\"PROD_DOMAIN='{d.get('environments',{}).get('production',{}).get('domain','')}'\")
-print(f\"PROD_DOPPLER='{d.get('environments',{}).get('production',{}).get('doppler_environment','')}'\")
-print(f\"ENV_VARS='{' '.join(d.get('env_vars',[]))}'\")
-print(f\"APP_PORT='{d.get('port',3000)}'\")
-print(f\"HEALTH_CHECK_PATH='{d.get('health_check_path','/api/health')}'\")
-")"
+# Parse coolify.yaml — safe extraction via lib-config.py (shlex.quote'd output, no injection)
+eval "$(python3 "$SCRIPT_DIR/lib-config.py" emit-yaml-vars "$YAML_PATH")"
 
 coolify_load_server "$SERVER_ALIAS"
 doppler_load_account "$SERVER_ALIAS"
@@ -77,12 +57,8 @@ echo "  project_uuid=$PROJECT_UUID"
 # Server name on a single-node Coolify install is conventionally "localhost", but
 # is user-configurable in the Coolify UI. Read the configured name from coolify.json
 # (optional field; defaults to "localhost" for backward compatibility).
-SERVER_NAME=$(python3 -c "
-import json
-d=json.load(open('$HOME/.claude/coolify.json'))
-e=d.get('servers',{}).get('$SERVER_ALIAS',{})
-print(e.get('server_name','localhost'))
-")
+SERVER_NAME=$(python3 "$SCRIPT_DIR/lib-config.py" get-json-field "$HOME/.claude/coolify.json" "$SERVER_ALIAS" server_name)
+SERVER_NAME="${SERVER_NAME:-localhost}"
 # MSRV-01/02: deploy_server in coolify.yaml overrides server_name from coolify.json.
 # Fallback chain: deploy_server -> server_name -> "localhost".
 if [ -n "${DEPLOY_SERVER:-}" ]; then
@@ -99,12 +75,7 @@ echo "  deploy_server=$DEPLOY_SERVER_NAME deploy_server_uuid=$DEPLOY_SERVER_UUID
 
 # SSH host: read from ~/.claude/coolify.json server entry. REQUIRED — no fallback.
 # provision.sh creates a Docker volume on the Coolify server via SSH, so this must be set.
-SSH_HOST=$(python3 -c "
-import json
-d=json.load(open('$HOME/.claude/coolify.json'))
-e=d.get('servers',{}).get('$SERVER_ALIAS',{})
-print(e.get('ssh_host',''))
-")
+SSH_HOST=$(python3 "$SCRIPT_DIR/lib-config.py" get-json-field "$HOME/.claude/coolify.json" "$SERVER_ALIAS" ssh_host)
 if [ -z "$SSH_HOST" ]; then
   echo "ERROR: 'ssh_host' field is missing from servers.$SERVER_ALIAS in ~/.claude/coolify.json." >&2
   echo "Add it manually or re-run /setup-coolify init. Example:" >&2
@@ -114,12 +85,8 @@ fi
 echo "  ssh_host=$SSH_HOST"
 
 # MSRV-04: deploy_ssh_host overrides ssh_host for SSH ops on the deployment VPS.
-DEPLOY_SSH_HOST=$(python3 -c "
-import json
-d=json.load(open('$HOME/.claude/coolify.json'))
-e=d.get('servers',{}).get('$SERVER_ALIAS',{})
-print(e.get('deploy_ssh_host','') or e.get('ssh_host',''))
-")
+DEPLOY_SSH_HOST=$(python3 "$SCRIPT_DIR/lib-config.py" get-json-field "$HOME/.claude/coolify.json" "$SERVER_ALIAS" deploy_ssh_host)
+DEPLOY_SSH_HOST="${DEPLOY_SSH_HOST:-$SSH_HOST}"
 if [ -z "$DEPLOY_SSH_HOST" ]; then
   echo "ERROR: could not resolve deploy_ssh_host or ssh_host for $SERVER_ALIAS" >&2; exit 1
 fi
@@ -131,11 +98,7 @@ echo "  deploy_ssh_host=$DEPLOY_SSH_HOST"
 #   2. GET /servers/$DEPLOY_SERVER_UUID .ip (skip if private/loopback or "host.docker.internal")
 #   3. coolify.json servers.$SERVER_ALIAS.vps_ip (only meaningful when deploy_server unset — localhost case)
 #   4. ssh $DEPLOY_SSH_HOST + ifconfig.me
-DEPLOY_VPS_IP=$(python3 -c "
-import json
-d=json.load(open('$HOME/.claude/coolify.json'))
-print(d.get('servers',{}).get('$SERVER_ALIAS',{}).get('deploy_vps_ip',''))
-")
+DEPLOY_VPS_IP=$(python3 "$SCRIPT_DIR/lib-config.py" get-json-field "$HOME/.claude/coolify.json" "$SERVER_ALIAS" deploy_vps_ip)
 DEPLOY_VPS_IP_SOURCE="coolify.json deploy_vps_ip"
 if [ -z "$DEPLOY_VPS_IP" ]; then
   DEPLOY_VPS_IP=$(coolify_curl GET "/servers/$DEPLOY_SERVER_UUID" 2>/dev/null | python3 -c "
@@ -155,11 +118,7 @@ if ip and ip != 'host.docker.internal':
 fi
 if [ -z "$DEPLOY_VPS_IP" ] && [ -z "${DEPLOY_SERVER:-}" ]; then
   # localhost case only: fall back to vps_ip (which describes the Coolify host)
-  DEPLOY_VPS_IP=$(python3 -c "
-import json
-d=json.load(open('$HOME/.claude/coolify.json'))
-print(d.get('servers',{}).get('$SERVER_ALIAS',{}).get('vps_ip',''))
-")
+  DEPLOY_VPS_IP=$(python3 "$SCRIPT_DIR/lib-config.py" get-json-field "$HOME/.claude/coolify.json" "$SERVER_ALIAS" vps_ip)
   [ -n "$DEPLOY_VPS_IP" ] && DEPLOY_VPS_IP_SOURCE="coolify.json vps_ip (localhost fallback)"
 fi
 if [ -z "$DEPLOY_VPS_IP" ]; then
@@ -181,22 +140,7 @@ DNS_ENABLED=false
 DNS_ZONE_ID=""
 declare -A DNS_RECORD_IDS
 
-eval "$(python3 -c "
-import yaml, sys
-d = yaml.safe_load(open('$YAML_PATH'))
-dns = d.get('dns', {})
-provider = dns.get('provider', 'none')
-if not provider or provider == 'none':
-    print('dns_provider=none')
-    sys.exit(0)
-zone_name   = dns.get('zone_name', '')
-cred_source = dns.get('credential_source', 'doppler')
-cred_key    = dns.get('credential_key', '')
-print(f'dns_provider={provider}')
-print(f'dns_zone_name_raw={zone_name}')
-print(f'dns_cred_source={cred_source}')
-print(f'dns_cred_key={cred_key}')
-")"
+eval "$(python3 "$SCRIPT_DIR/lib-config.py" emit-dns-vars "$YAML_PATH")"
 
 if [ "${dns_provider:-none}" != "none" ]; then
   DNS_ENABLED=true
@@ -226,23 +170,27 @@ for ENV_NAME in staging production; do
   # 2a. Upsert app — lookup by name first (idempotent)
   APP_UUID=$(coolify_find_app_by_name "$APP_NAME")
   if [ -z "$APP_UUID" ]; then
-    BODY=$(python3 -c "
-import json
+    BODY=$(python3 - "$PROJECT_UUID" "$DEPLOY_SERVER_UUID" "$APP_NAME" \
+        "$REGISTRY_IMAGE_NAME" "$APP_PORT" "https://$DOMAIN" "${DEST_UUID:-}" <<'PY'
+import json, sys
+project_uuid, server_uuid, name, img, port, domain, dest_uuid = sys.argv[1:8]
 d = {
-  'project_uuid': '$PROJECT_UUID',
-  'server_uuid': '$DEPLOY_SERVER_UUID',
+  'project_uuid': project_uuid,
+  'server_uuid': server_uuid,
   'environment_name': 'production',
-  'name': '$APP_NAME',
-  'docker_registry_image_name': '$REGISTRY_IMAGE_NAME',
-  'docker_registry_image_tag': 'main',
-  'ports_exposes': '$APP_PORT',
-  'domains': 'https://$DOMAIN',
+  'name': name,
+  'docker_registry_image_name': img,
+  'docker_registry_image_tag': 'latest',
+  'ports_exposes': port,
+  'domains': domain,
   'is_auto_deploy_enabled': False,
   'instant_deploy': False
 }
-if '$DEST_UUID': d['destination_uuid'] = '$DEST_UUID'
+if dest_uuid:
+  d['destination_uuid'] = dest_uuid
 print(json.dumps(d))
-")
+PY
+)
     # Try registry-image endpoint first; fall back to dockerimage
     CREATE_RESP=$(coolify_curl POST "/applications/dockerimage" "$BODY" 2>/dev/null \
       || coolify_curl POST "/applications/private-github-app" "$BODY")
@@ -273,20 +221,24 @@ print(json.dumps(d))
   # 2b. PATCH fixed app settings
   VOLUME_NAME="${APP_UUID}-doppler-cache"
   EXPECTED_MOUNT="--mount source=${VOLUME_NAME},target=/etc/doppler-cache"
-  PATCH_BODY=$(python3 -c "
-import json
+  PATCH_BODY=$(python3 - "https://$DOMAIN" "$EXPECTED_MOUNT" "$REGISTRY_IMAGE_NAME" \
+      "$HEALTH_CHECK_PATH" "$APP_PORT" <<'PY'
+import json, sys
+domain, mount, img, hc_path, hc_port = sys.argv[1:6]
 print(json.dumps({
-  'domains': 'https://$DOMAIN',
+  'domains': domain,
   'is_auto_deploy_enabled': False,
-  'custom_docker_run_options': '$EXPECTED_MOUNT',
-  'docker_registry_image_name': '$REGISTRY_IMAGE_NAME',
+  'custom_docker_run_options': mount,
+  'docker_registry_image_name': img,
   'health_check_enabled': True,
-  'health_check_path': '$HEALTH_CHECK_PATH',
-  'health_check_port': int('$APP_PORT'),
+  'health_check_path': hc_path,
+  'health_check_port': int(hc_port),
   'health_check_interval': 30,
   'health_check_timeout': 5,
   'health_check_retries': 3
-}))")
+}))
+PY
+)
   coolify_curl PATCH "/applications/$APP_UUID" "$PATCH_BODY" >/dev/null
   echo "    PATCHED settings (fqdn=$DOMAIN, auto_deploy=off, volume_mount=$VOLUME_NAME, health_check=$HEALTH_CHECK_PATH:$APP_PORT)"
 
@@ -297,25 +249,40 @@ print(json.dumps({
   }
   echo "    VOLUME ready: $VOLUME_NAME on $DEPLOY_SSH_HOST"
 
-  # 2d. Create or rotate Doppler service token for this environment
+  # 2d. Create Doppler service token — skip rotation when token already wired on a
+  # running app (rotation would revoke the token the live container uses until its
+  # next redeploy, causing secret-fetch failures on restart). Pass --rotate-tokens
+  # to force rotation (e.g. after a credential compromise).
   TOKEN_NAME="coolify-${PROJECT}-${ENV_NAME}"
-  # Best-effort revoke existing token of same name; ignore failures
-  doppler_cmd configs tokens revoke "$TOKEN_NAME" -p "$DOPPLER_PROJECT" -c "$DOPPLER_ENV" --yes >/dev/null 2>&1 || true
-  DOPPLER_SVC_TOKEN=$(doppler_create_service_token "$DOPPLER_PROJECT" "$DOPPLER_ENV" "$TOKEN_NAME")
-  [ -n "$DOPPLER_SVC_TOKEN" ] || { echo "ERROR: failed to create Doppler service token for $DOPPLER_PROJECT/$DOPPLER_ENV" >&2; exit 1; }
-  echo "    TOKEN created: $TOKEN_NAME (scope: $DOPPLER_PROJECT/$DOPPLER_ENV)"
+  _existing_token=$(coolify_curl GET "/applications/$APP_UUID/envs" 2>/dev/null \
+    | python3 -c "
+import json,sys
+try:
+  envs=json.load(sys.stdin)
+  items=envs if isinstance(envs,list) else envs.get('data',[])
+  for e in items:
+    if e.get('key')=='DOPPLER_TOKEN' and e.get('value',''):
+      print('yes'); break
+except: pass
+" 2>/dev/null || echo "")
 
-  # 2e. Set DOPPLER_TOKEN on the Coolify app — this is the ONLY env var Coolify needs.
-  # The app's Dockerfile ENTRYPOINT runs `doppler run` which uses DOPPLER_TOKEN to
-  # fetch all actual secrets from Doppler at container start. Secret values never
-  # pass through Coolify — they stay exclusively in Doppler.
-  ENVS_JSON=$(python3 -c "
+  if [ "${ROTATE_TOKENS:-false}" != "true" ] && [ "$_existing_token" = "yes" ]; then
+    echo "    TOKEN exists: $TOKEN_NAME — skipping rotation (pass --rotate-tokens to force)"
+  else
+    doppler_cmd configs tokens revoke "$TOKEN_NAME" -p "$DOPPLER_PROJECT" -c "$DOPPLER_ENV" --yes >/dev/null 2>&1 || true
+    DOPPLER_SVC_TOKEN=$(doppler_create_service_token "$DOPPLER_PROJECT" "$DOPPLER_ENV" "$TOKEN_NAME")
+    [ -n "$DOPPLER_SVC_TOKEN" ] || { echo "ERROR: failed to create Doppler service token for $DOPPLER_PROJECT/$DOPPLER_ENV" >&2; exit 1; }
+    echo "    TOKEN created: $TOKEN_NAME (scope: $DOPPLER_PROJECT/$DOPPLER_ENV)"
+
+    # 2e. Set DOPPLER_TOKEN on the Coolify app — the ONLY env var Coolify needs.
+    ENVS_JSON=$(python3 - "$DOPPLER_SVC_TOKEN" <<'PY'
 import json, sys
-token = sys.argv[1]
-print(json.dumps([{'key': 'DOPPLER_TOKEN', 'value': token, 'is_preview': False}]))
-" "$DOPPLER_SVC_TOKEN")
-  echo "$ENVS_JSON" | coolify_set_app_envs "$APP_UUID" >/dev/null
-  echo "    ENVS synced (DOPPLER_TOKEN only — all other secrets fetched from Doppler at container start)"
+print(json.dumps([{'key': 'DOPPLER_TOKEN', 'value': sys.argv[1], 'is_preview': False}]))
+PY
+)
+    echo "$ENVS_JSON" | coolify_set_app_envs "$APP_UUID" >/dev/null
+    echo "    ENVS synced (DOPPLER_TOKEN only — all other secrets fetched from Doppler at container start)"
+  fi
 
   # 2f. Verify volume mount round-trip — HARD FAIL if PATCH did not persist
   ACTUAL_OPTS=$(coolify_curl GET "/applications/$APP_UUID" | python3 -c "import json,sys; print(json.load(sys.stdin).get('custom_docker_run_options','') or '')")
@@ -349,6 +316,10 @@ with open(path, 'w') as f:
     yaml.safe_dump(d, f, sort_keys=False, default_flow_style=False)
 PY
 echo "  WROTE back coolify_app_ids to $YAML_PATH"
+
+# 4. Regenerate deploy.yml now that real UUIDs are available
+bash "$SCRIPT_DIR/generate-workflow.sh" "$YAML_PATH"
+echo "  REGENERATED .github/workflows/deploy.yml with provisioned app UUIDs"
 
 echo ""
 echo "DONE: ${PROJECT}-staging=${APP_UUIDS[staging]} ${PROJECT}-production=${APP_UUIDS[production]}"
@@ -392,4 +363,11 @@ else
   echo ""
   echo "  DNS records  : skipped (dns: block not configured or provider: none)"
 fi
+echo ""
+echo "  Next steps (one-time per repo)"
+echo "  ────────────────────────────────────────────────────────────────────────────"
+echo "  1. Set the GitHub Actions secret (if not already set):"
+echo "     gh secret set COOLIFY_API_KEY --body \"<your-coolify-api-key>\" --repo <owner/repo>"
+echo "  2. Commit and push:"
+echo "     git add coolify.yaml .github/workflows/deploy.yml && git push"
 echo "═══════════════════════════════════════════════════════════════════════════════"

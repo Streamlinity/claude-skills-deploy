@@ -20,12 +20,13 @@ doppler_load_account() {
   fi
 
   local _acct _tok
-  read -r _acct _tok < <(python3 -c "
+  read -r _acct _tok < <(python3 - "$COOLIFY_REGISTRY" "$server_alias" <<'PY'
 import json, sys
-d = json.load(open('$COOLIFY_REGISTRY'))
-s = d.get('servers', {}).get('$server_alias', {})
+d = json.load(open(sys.argv[1]))
+s = d.get('servers', {}).get(sys.argv[2], {})
 print(s.get('doppler_account', ''), s.get('doppler_token', ''))
-")
+PY
+)
 
   if [ -z "$_acct" ]; then
     echo "ERROR: server '$server_alias' has no doppler_account field in $COOLIFY_REGISTRY" >&2
