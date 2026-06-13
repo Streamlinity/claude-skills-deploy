@@ -1,22 +1,14 @@
 # Roadmap: claude-skills-deploy
 
-## Overview
+## Milestones
 
-The core Coolify + Doppler deployment skill is built and working. This milestone
-fixes three HIGH bugs that would prevent the E2E test from passing, then builds
-the test framework (E2E runner + static workflow validator + cleanup script) that
-lets a new user clone the repo, run one command, and see a working hello-world
-deployment on their Coolify server.
+- [x] **v1.0 MVP** - Phases 01-04 (shipped 2026-06-08)
+- [ ] **v1.1 Deployment Correctness** - Phases 05-07 (in progress)
 
 ## Phases
 
-- [x] **Phase 1: Bug Fixes** - Patch three HIGH bugs in provision.sh and generate-workflow.sh that would cause the E2E test to fail for the wrong reasons
-- [x] **Phase 2: Test Framework** - Build the E2E test runner, static workflow validator, and wire them together so a passing run proves the skill is correct
-- [x] **Phase 02.1: new-user-onboarding (URGENT)** - Remove maintainer-specific defaults and stale docs that silently fail for new users (completed 2026-05-22)
-- [x] **Phase 3: Cleanup Script** - Add the separate teardown script that lets an operator delete the hello-world deployment after inspecting it
-- [x] **Phase 4: Multi-Server Deployment** - Deploy apps to a separate VPS registered as a Coolify server; backward-compatible with existing localhost deployments (completed 2026-06-07)
-
-## Phase Details
+<details>
+<summary>v1.0 MVP (Phases 01-04) — SHIPPED 2026-06-08</summary>
 
 ### Phase 1: Bug Fixes
 **Goal**: All three HIGH bugs in the provisioning and workflow generation scripts are fixed so that a provisioned Coolify app works correctly and the generated deploy.yml is accepted by GitHub Actions
@@ -47,26 +39,25 @@ deployment on their Coolify server.
 - [x] 02-01-PLAN.md — Modify test/e2e.sh: env var config (E2E_SERVER/E2E_BASE_DOMAIN), conditional cleanup, JSON report, completion summary (TEST-01..05)
 - [x] 02-02-PLAN.md — Create test/validate-workflow.sh: YAML syntax + needs-reference resolution checks (VALID-01, VALID-02)
 
-**Status**: COMPLETE — verified 2026-05-22. Live E2E confirmed: Coolify project `csd-e2e-2026-05-22-111012` (staging + production) present. E2E_SERVER override test skipped — no second server available; accepted risk, env var substitution verified statically.
+**Status**: COMPLETE — verified 2026-05-22.
 **UI hint**: no
 
 ### Phase 02.1: new-user-onboarding (INSERTED)
-
-**Goal**: A new user who clones this repo and runs `bash test/e2e.sh` without setting any environment variables gets a clear, actionable error pointing at `/setup-coolify init` instead of silently attempting to hit the maintainer's Coolify instance; SKILL.md accurately describes what `provision.sh` actually does (no dead-code function references, no false deploy-trigger claims); README.md opens with a 5-step happy path above the prerequisites; references/api-reference.md uses placeholders instead of maintainer-specific domains.
+**Goal**: A new user who clones this repo and runs `bash test/e2e.sh` without setting any environment variables gets a clear, actionable error pointing at `/setup-coolify init` instead of silently attempting to hit the maintainer's Coolify instance; SKILL.md accurately describes what `provision.sh` actually does; README.md opens with a 5-step happy path above the prerequisites; references/api-reference.md uses placeholders instead of maintainer-specific domains.
 **Depends on**: Phase 2
 **Requirements**: ONBOARD-01, ONBOARD-02, ONBOARD-03, ONBOARD-04, ONBOARD-05, ONBOARD-06, ONBOARD-07
 **Success Criteria** (what must be TRUE):
-  1. Running `env -u E2E_SERVER -u E2E_BASE_DOMAIN bash test/e2e.sh` exits 1 with stderr containing both `ERROR: E2E_SERVER is required` and `ERROR: E2E_BASE_DOMAIN is required`, each followed by an actionable next-step (alias-key explanation and `/setup-coolify init` reference for E2E_SERVER; base-domain semantics for E2E_BASE_DOMAIN)
-  2. `grep -c 'streamlinity\|vultr-stream\|cicd' test/e2e.sh SKILL.md references/api-reference.md` returns 0 (no maintainer-specific strings in user-facing scripts and docs)
-  3. SKILL.md execution-flow steps 2 and 6 accurately describe `provision.sh`: step 2 lists the actual functions called (`coolify_upsert_project`, `coolify_get_server_uuid`, `coolify_get_destination_uuid`) and the `server_name` + `ssh_host` lookups; step 6 states that no deploy is triggered and the first deploy happens via push-to-main + the generated workflow
-  4. SKILL.md `See also` section links to `docs/schema.md` (which exists) — not the non-existent `.planning/codebase/COOLIFY_YAML_SCHEMA.md`
-  5. README.md opens with a `## Quick start` section (positioned between `## What you get` and `## Prerequisites`) listing exactly 5 commands and linking to `docs/setup-guide.md` and `docs/fork-guide.md`
-  6. references/api-reference.md begins with a placeholder convention note and uses `<your-coolify-domain>` / `<your-doppler-account>` / `<your-app-domain>` throughout
+  1. Running `env -u E2E_SERVER -u E2E_BASE_DOMAIN bash test/e2e.sh` exits 1 with stderr containing both `ERROR: E2E_SERVER is required` and `ERROR: E2E_BASE_DOMAIN is required`
+  2. `grep -c 'streamlinity\|vultr-stream\|cicd' test/e2e.sh SKILL.md references/api-reference.md` returns 0
+  3. SKILL.md execution-flow steps 2 and 6 accurately describe `provision.sh` and state no deploy is triggered
+  4. SKILL.md `See also` section links to `docs/schema.md`
+  5. README.md opens with a `## Quick start` section listing exactly 5 commands
+  6. references/api-reference.md begins with a placeholder convention note and uses `<your-coolify-domain>` throughout
 **Plans**: 4 plans
-- [x] 02.1-01-PLAN.md — test/e2e.sh: replace silent E2E_SERVER/E2E_BASE_DOMAIN defaults with actionable missing-var guards; annotate E2E_IMAGE default with origin + custom-image pointer (ONBOARD-01, ONBOARD-02)
-- [x] 02.1-02-PLAN.md — SKILL.md: rewrite provision-flow steps 2 and 6 to match actual behaviour; replace maintainer init examples with generic placeholders; fix broken See also schema link (ONBOARD-03, ONBOARD-04, ONBOARD-05)
-- [x] 02.1-03-PLAN.md — README.md: add 5-command Quick start section above Prerequisites with links to setup-guide.md and fork-guide.md (ONBOARD-06)
-- [x] 02.1-04-PLAN.md — references/api-reference.md: add top-of-file placeholder convention note; replace all `streamlinity` / `coolify.cicd` values with `<your-coolify-domain>` / `<your-doppler-account>` / `<your-app-domain>` (ONBOARD-07)
+- [x] 02.1-01-PLAN.md — test/e2e.sh: replace silent defaults with actionable missing-var guards (ONBOARD-01, ONBOARD-02)
+- [x] 02.1-02-PLAN.md — SKILL.md: rewrite provision-flow steps 2 and 6; fix broken schema link (ONBOARD-03, ONBOARD-04, ONBOARD-05)
+- [x] 02.1-03-PLAN.md — README.md: add 5-command Quick start section (ONBOARD-06)
+- [x] 02.1-04-PLAN.md — references/api-reference.md: replace all maintainer-specific values with placeholders (ONBOARD-07)
 
 **UI hint**: no
 
@@ -83,28 +74,73 @@ deployment on their Coolify server.
 **UI hint**: no
 
 ### Phase 4: Multi-Server Deployment
-**Goal**: Operators can deploy apps to a separately-registered Coolify server (a VPS distinct from the Coolify host) by setting `deploy_server:` in `coolify.yaml`, while all existing repos without this field continue to work unchanged. DNS provisioning, Docker volume creation, and VPS IP resolution all target the correct server. A migration guide covers converting existing localhost-deployed apps.
+**Goal**: Operators can deploy apps to a separately-registered Coolify server by setting `deploy_server:` in `coolify.yaml`, while all existing repos without this field continue to work unchanged
 **Depends on**: Phase 3
 **Requirements**: MSRV-01, MSRV-02, MSRV-03, MSRV-04, MSRV-05, MSRV-06, MSRV-07, MSRV-08
 **Success Criteria** (what must be TRUE):
   1. A `coolify.yaml` with `deploy_server: "my-app-vps"` causes `provision.sh` to create Coolify apps on the server named `my-app-vps`, not `localhost`
-  2. A `coolify.yaml` without `deploy_server:` provisions apps on the `localhost` server exactly as before (backward compatible)
+  2. A `coolify.yaml` without `deploy_server:` provisions apps on the `localhost` server exactly as before
   3. `validate.sh` exits non-zero with a named-server error when `deploy_server:` references a server not registered in Coolify
-  4. DNS A records created by `provision.sh` resolve to the deployment VPS IP (not the Coolify host IP) when `deploy_ssh_host` is set
-  5. `docs/schema.md` documents `deploy_server:` and `deploy_ssh_host` with examples; `docs/setup-guide.md` has a "Deploy to a separate VPS" how-to section
+  4. DNS A records created by `provision.sh` resolve to the deployment VPS IP when `deploy_ssh_host` is set
+  5. `docs/schema.md` documents `deploy_server:` and `deploy_ssh_host` with examples
 **Plans**: 4 plans
-- [x] 04-01-PLAN.md — provision.sh + validate.sh + lib-coolify-api.sh: DEPLOY_SERVER_NAME/DEPLOY_SSH_HOST/DEPLOY_VPS_IP resolution chains, deploy_server existence check, improved destination-uuid lookup (MSRV-01..06)
-- [x] 04-02-PLAN.md — init.sh + coolify.yaml.tmpl: optional deploy_server prompt with commented-out template default (MSRV-01)
-- [x] 04-03-PLAN.md — docs/schema.md + docs/setup-guide.md + new docs/multi-server-migration.md: field references, 'Deploy to a separate VPS' how-to, migration guide (MSRV-07, MSRV-08)
-- [x] 04-04-PLAN.md — test/validate-deploy-server.sh: MSRV-03 regression test against live Coolify (autonomous: false; depends on 04-01)
+- [x] 04-01-PLAN.md — provision.sh + validate.sh + lib-coolify-api.sh: DEPLOY_SERVER_NAME/DEPLOY_SSH_HOST/DEPLOY_VPS_IP resolution chains (MSRV-01..06)
+- [x] 04-02-PLAN.md — init.sh + coolify.yaml.tmpl: optional deploy_server prompt (MSRV-01)
+- [x] 04-03-PLAN.md — docs/schema.md + docs/setup-guide.md + new docs/multi-server-migration.md (MSRV-07, MSRV-08)
+- [x] 04-04-PLAN.md — test/validate-deploy-server.sh: MSRV-03 regression test (MSRV-03)
+
+**UI hint**: no
+
+</details>
+
+### v1.1 Deployment Correctness (In Progress)
+
+**Milestone Goal:** Make same-image promotion verifiably correct by adding deployment polling, image digest tracking, a cross-environment promotion assertion, and runtime version verification to the generated deploy.yml.
+
+#### Phase 05: Deployment Polling
+**Goal**: Coolify deployment failures surface immediately rather than timing out on the health endpoint — a failed image pull exits the workflow within seconds, not minutes
+**Depends on**: Phase 4
+**Requirements**: POLL-01, POLL-02
+**Success Criteria** (what must be TRUE):
+  1. When Coolify returns `status=failed` on a deployment, the workflow job exits non-zero within one polling cycle with a message directing the operator to the Coolify UI — no 6-minute health-check timeout occurs
+  2. Both `deploy-staging` and `deploy-production` wait for `status=finished` before running the health check — health checks never race against an in-progress container pull
+  3. Deployment polling status is logged at each interval so the operator can see Coolify's progress without opening the UI
+**Plans**: TBD
+**UI hint**: no
+
+#### Phase 06: Promotion Integrity + Diagnostics
+**Goal**: Same-image promotion is verifiably asserted in CI — staging and production are confirmed on the same image tag before GHCR cleanup runs, with full digest traceability from build through deploy
+**Depends on**: Phase 05
+**Requirements**: PROMOTE-01, PROMOTE-02, DIAG-01, DIAG-02, INV-04, INV-05
+**Success Criteria** (what must be TRUE):
+  1. The build job's full image digest (sha256) is captured as a job output and visible in the Actions log; each deploy step logs the expected digest and tag at the start of execution
+  2. A `verify-promotion` job asserts that Coolify's application records confirm the same image tag on both staging and production apps
+  3. `ghcr-cleanup` depends on `verify-promotion` and does not run if the promotion assertion fails — all tags are preserved in GHCR for debugging
+  4. `docs/invariants.md` documents INV-04 (deployed tag must equal build SHA) and INV-05 (production smoke test must pass before workflow completes)
+**Plans**: TBD
+**UI hint**: no
+
+#### Phase 07: Runtime Identity
+**Goal**: The deployed container's identity is verifiable at runtime through the health endpoint, with version assertions in both staging and production smoke tests that degrade gracefully for apps that have not yet adopted the convention
+**Depends on**: Phase 06
+**Requirements**: LAYER3-01, LAYER3-02, SMOKE-01, SMOKE-02, SMOKE-03
+**Success Criteria** (what must be TRUE):
+  1. Generated `deploy.yml` passes `GIT_SHA` and `BUILD_TIMESTAMP` as build-args; images built from it carry `org.opencontainers.image.revision` and `org.opencontainers.image.created` OCI labels
+  2. The staging smoke test extracts `version` from the health response and asserts it equals `sha-<TAG>`; the job passes without error when the `version` field is absent
+  3. `deploy-production` includes a post-deploy smoke test with the same version assertion (currently absent), also with graceful skip when the field is absent
+  4. The `init.sh` Dockerfile template scaffold includes `ARG GIT_SHA`, `ARG BUILD_TIMESTAMP`, and corresponding OCI `LABEL` stanzas so new repos get identity baking out of the box
+**Plans**: TBD
 **UI hint**: no
 
 ## Progress
 
-| Phase | Plans Complete | Status | Completed |
-|-------|----------------|--------|-----------|
-| 1. Bug Fixes | 3/3 | Complete | 2026-05-22 |
-| 2. Test Framework | 2/2 | Complete | 2026-05-22 |
-| 02.1. new-user-onboarding | 4/4 | Complete    | 2026-05-22 |
-| 3. Cleanup Script | 1/1 | Complete | 2026-05-22 |
-| 4. Multi-Server Deployment | 4/4 | Complete   | 2026-06-07 |
+| Phase | Milestone | Plans Complete | Status | Completed |
+|-------|-----------|----------------|--------|-----------|
+| 1. Bug Fixes | v1.0 | 3/3 | Complete | 2026-05-22 |
+| 2. Test Framework | v1.0 | 2/2 | Complete | 2026-05-22 |
+| 02.1. new-user-onboarding | v1.0 | 4/4 | Complete | 2026-05-22 |
+| 3. Cleanup Script | v1.0 | 1/1 | Complete | 2026-05-22 |
+| 4. Multi-Server Deployment | v1.0 | 4/4 | Complete | 2026-06-07 |
+| 5. Deployment Polling | v1.1 | 0/? | Not started | - |
+| 6. Promotion Integrity + Diagnostics | v1.1 | 0/? | Not started | - |
+| 7. Runtime Identity | v1.1 | 0/? | Not started | - |

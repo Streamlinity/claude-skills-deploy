@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Deployment Correctness
-current_phase: ~
-current_phase_name: ~
+current_phase: 05
+current_phase_name: Deployment Polling
 current_plan: ~
-status: defining requirements
+status: planning
 stopped_at: ~
 last_updated: "2026-06-13T00:00:00.000Z"
 last_activity: 2026-06-13
 progress:
-  total_phases: 0
+  total_phases: 3
   completed_phases: 0
   total_plans: 0
   completed_plans: 14
-  percent: 100
+  percent: 0
 ---
 
 # Project State
@@ -24,22 +24,22 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-21)
 
 **Core value:** A developer can clone this repo, run one command, see a working hello-world deployment on their Coolify server, and trust the skill is correct before using it for a real application.
-**Current focus:** Phase 03 — cleanup-script
+**Current focus:** Phase 05 — Deployment Polling
 
 ## Current Position
 
-Phase: Not started (defining requirements)
+Phase: 05 — Deployment Polling
 Plan: —
-Status: Defining requirements
-Last activity: 2026-06-13 — Milestone v1.1 started
+Status: Planning (roadmap created, no plans written yet)
+Last activity: 2026-06-13 — Milestone v1.1 roadmap created
 
-**Progress:** [██████████] 100%
+**Progress:** [__________] 0% (v1.1)
 
 ## Performance Metrics
 
 **Velocity:**
 
-- Total plans completed: 0
+- Total plans completed: 0 (v1.1); 14 (v1.0)
 - Average duration: —
 - Total execution time: 0 hours
 
@@ -87,18 +87,21 @@ Recent decisions affecting current work:
 - [Phase 02-test-framework]: E2E_SERVER env var replaces python3 coolify.json first-server fallback — simpler and explicit
 - [Phase 02-test-framework]: write_report() called idempotently from main body and cleanup() to ensure report written on both pass and fail paths
 - [Phase 02.1-new-user-onboarding]: D-08: Quick start section added to README.md above Prerequisites — 5-command happy path gives new users workflow overview before prerequisite wall
-- [Phase 02.1-new-user-onboarding]: D-09: Replace all maintainer-specific values in api-reference.md with generic placeholders (<your-coolify-domain>, <your-doppler-account>, <your-app-domain>, <your-ssh-host>); add blockquote substitution note at top of file
+- [Phase 02.1-new-user-onboarding]: D-09: Replace all maintainer-specific values in api-reference.md with generic placeholders
 - [Phase 02.1-new-user-onboarding]: SKILL.md step 2: server_name read from coolify.json (default localhost), ssh_host required — matches actual provision.sh flow
 - [Phase 02.1-new-user-onboarding]: SKILL.md step 6: provision.sh does not trigger deploy; first deploy fires via git push to main activating deploy.yml
-- [Phase 02.1-new-user-onboarding]: E2E_SERVER/E2E_BASE_DOMAIN: accumulate both missing-var errors before exit 1, guard skips when --server flag sets SERVER_ALIAS
-- [Phase 02.1-new-user-onboarding]: E2E_IMAGE default preserved — public domain-neutral fixture image; only adds explanatory comment with maintainer origin and sentinel string
-- [Phase 03-cleanup-script]: D-02 deletion order: staging app first, then production app, then Coolify project, then Docker volumes, then Doppler project — safe order avoids cascade ambiguity
-- [Phase 03-cleanup-script]: eval python3 block validates all six required report fields at startup before any DELETE — clear named error messages for each failure mode (missing file, bad JSON, missing fields)
-- [Phase 03-cleanup-script]: Fixed e2e.sh write_report() to emit coolify_project_uuid, ssh_host, doppler_project matching D-03 schema — old output used project_uuid and omitted the other two fields
+- [Phase 02.1-new-user-onboarding]: E2E_SERVER/E2E_BASE_DOMAIN: accumulate both missing-var errors before exit 1
+- [Phase 03-cleanup-script]: D-02 deletion order: staging app first, then production app, then Coolify project, then Docker volumes, then Doppler project
+- [Phase 03-cleanup-script]: eval python3 block validates all six required report fields at startup before any DELETE
+- [Phase 03-cleanup-script]: Fixed e2e.sh write_report() to emit coolify_project_uuid, ssh_host, doppler_project matching D-03 schema
+- [v1.1 Roadmap]: Phase 05 (polling) delivers highest value with zero app changes — replaces sleep-then-health-check with status=finished gate
+- [v1.1 Roadmap]: Phase 06 bundles DIAG + PROMOTE + INV — all are pure CI changes in generate-workflow.sh and docs with no app-side dependency
+- [v1.1 Roadmap]: Phase 07 (runtime identity) is separate because it requires Dockerfile + health endpoint changes per repo; graceful-skip default makes adoption incremental
 
 ### Roadmap Evolution
 
-- Phase 02.1 inserted after Phase 2: new-user-onboarding (URGENT) — review identified 8 issues: hardcoded streamlinity domain values in scripts that silently fail for new users, stale docs, and missing "new domain quick start" guidance
+- Phase 02.1 inserted after Phase 2: new-user-onboarding (URGENT)
+- v1.1 roadmap created 2026-06-13: 3 phases (05-07), 13 requirements, 100% coverage
 
 ### Pending Todos
 
@@ -106,15 +109,14 @@ None.
 
 ### Blockers/Concerns
 
-- Phase 1: CONCERNS.md notes a fallback CREATE endpoint body mismatch (MEDIUM severity) — not blocking but may surface during E2E test execution
-- Phase 2: E2E test run against real infrastructure 2026-05-22 — passed. Cleanup script also exercised live. Both blockers resolved.
+None currently.
 
 ## Session Continuity
 
-Last session: 2026-05-27T11:50:00.000Z
-Stopped at: Completed 260527-g21 quick task — DNS provisioning + cleanup
+Last session: 2026-06-13T00:00:00.000Z
+Stopped at: Roadmap created for v1.1
 Resume file: None
 
 ### Next Session TODO
 
-None.
+Run `/gsd:plan-phase 05` to plan Phase 05: Deployment Polling.

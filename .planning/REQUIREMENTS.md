@@ -71,25 +71,25 @@ Requirements for milestone v1.1: Deployment Correctness. Each maps to roadmap ph
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DIAG-01 | TBD | Pending |
-| DIAG-02 | TBD | Pending |
-| POLL-01 | TBD | Pending |
-| POLL-02 | TBD | Pending |
-| SMOKE-01 | TBD | Pending |
-| SMOKE-02 | TBD | Pending |
-| SMOKE-03 | TBD | Pending |
-| PROMOTE-01 | TBD | Pending |
-| PROMOTE-02 | TBD | Pending |
-| LAYER3-01 | TBD | Pending |
-| LAYER3-02 | TBD | Pending |
-| INV-04 | TBD | Pending |
-| INV-05 | TBD | Pending |
+| DIAG-01 | Phase 06 | Pending |
+| DIAG-02 | Phase 06 | Pending |
+| POLL-01 | Phase 05 | Pending |
+| POLL-02 | Phase 05 | Pending |
+| SMOKE-01 | Phase 07 | Pending |
+| SMOKE-02 | Phase 07 | Pending |
+| SMOKE-03 | Phase 07 | Pending |
+| PROMOTE-01 | Phase 06 | Pending |
+| PROMOTE-02 | Phase 06 | Pending |
+| LAYER3-01 | Phase 07 | Pending |
+| LAYER3-02 | Phase 07 | Pending |
+| INV-04 | Phase 06 | Pending |
+| INV-05 | Phase 06 | Pending |
 
 **Coverage:**
 - v1.1 requirements: 13 total
-- Mapped to phases: 0 (roadmap pending)
-- Unmapped: 13 ⚠️
+- Mapped to phases: 13
+- Unmapped: 0 ✓
 
 ---
 *Requirements defined: 2026-05-21*
-*Last updated: 2026-06-13 — milestone v1.1 requirements added*
+*Last updated: 2026-06-13 — milestone v1.1 traceability filled in*
