@@ -106,8 +106,9 @@
   2. Both `deploy-staging` and `deploy-production` wait for `status=finished` before running the health check — health checks never race against an in-progress container pull
   3. Deployment polling status is logged at each interval so the operator can see Coolify's progress without opening the UI
 **Plans**: 1 plan
-Plans:
-- [ ] 05-01-PLAN.md — Rewrite deploy-staging + deploy-production trigger steps to capture deployment_uuid and poll /api/v1/deployments/{uuid} until status=finished or exit on status=failed (POLL-01, POLL-02)
+- [x] 05-01-PLAN.md — Add trigger+poll step to deploy-staging and deploy-production jobs in generate-workflow.sh (POLL-01, POLL-02)
+
+**Status**: COMPLETE — executed 2026-06-13
 **UI hint**: no
 
 #### Phase 06: Promotion Integrity + Diagnostics
@@ -143,6 +144,6 @@ Plans:
 | 02.1. new-user-onboarding | v1.0 | 4/4 | Complete | 2026-05-22 |
 | 3. Cleanup Script | v1.0 | 1/1 | Complete | 2026-05-22 |
 | 4. Multi-Server Deployment | v1.0 | 4/4 | Complete | 2026-06-07 |
-| 5. Deployment Polling | v1.1 | 0/? | Not started | - |
+| 5. Deployment Polling | v1.1 | 1/1 | Complete | 2026-06-13 |
 | 6. Promotion Integrity + Diagnostics | v1.1 | 0/? | Not started | - |
 | 7. Runtime Identity | v1.1 | 0/? | Not started | - |
