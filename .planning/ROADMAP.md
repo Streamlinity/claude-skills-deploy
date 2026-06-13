@@ -120,7 +120,9 @@
   2. A `verify-promotion` job asserts that Coolify's application records confirm the same image tag on both staging and production apps
   3. `ghcr-cleanup` depends on `verify-promotion` and does not run if the promotion assertion fails — all tags are preserved in GHCR for debugging
   4. `docs/invariants.md` documents INV-04 (deployed tag must equal build SHA) and INV-05 (production smoke test must pass before workflow completes)
-**Plans**: TBD
+**Plans**: 2 plans
+- [ ] 06-01-PLAN.md — generate-workflow.sh: digest capture in build job, DIGEST env in deploy jobs, verify-promotion job, ghcr-cleanup dependency update (DIAG-01, DIAG-02, PROMOTE-01, PROMOTE-02)
+- [ ] 06-02-PLAN.md — docs/invariants.md: append INV-04 and INV-05 sections, update enforcement table (INV-04, INV-05)
 **UI hint**: no
 
 #### Phase 07: Runtime Identity
@@ -145,5 +147,5 @@
 | 3. Cleanup Script | v1.0 | 1/1 | Complete | 2026-05-22 |
 | 4. Multi-Server Deployment | v1.0 | 4/4 | Complete | 2026-06-07 |
 | 5. Deployment Polling | v1.1 | 1/1 | Complete | 2026-06-13 |
-| 6. Promotion Integrity + Diagnostics | v1.1 | 0/? | Not started | - |
+| 6. Promotion Integrity + Diagnostics | v1.1 | 0/2 | Not started | - |
 | 7. Runtime Identity | v1.1 | 0/? | Not started | - |
