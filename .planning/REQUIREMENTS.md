@@ -14,8 +14,8 @@ Requirements for milestone v1.1: Deployment Correctness. Each maps to roadmap ph
 
 ### POLL — Deployment Polling
 
-- [ ] **POLL-01**: After triggering a Coolify deploy, the workflow polls the Coolify deployments API until `status=finished` or `status=failed` (max 6 min) before proceeding to health checks
-- [ ] **POLL-02**: A `status=failed` Coolify deployment exits the workflow immediately with a clear error message directing the operator to the Coolify UI, rather than timing out on the health endpoint
+- [x] **POLL-01**: After triggering a Coolify deploy, the workflow polls the Coolify deployments API until `status=finished` or `status=failed` (max 6 min) before proceeding to health checks
+- [x] **POLL-02**: A `status=failed` Coolify deployment exits the workflow immediately with a clear error message directing the operator to the Coolify UI, rather than timing out on the health endpoint
 
 ### SMOKE — Smoke Tests
 
@@ -73,8 +73,8 @@ Requirements for milestone v1.1: Deployment Correctness. Each maps to roadmap ph
 |-------------|-------|--------|
 | DIAG-01 | Phase 06 | Pending |
 | DIAG-02 | Phase 06 | Pending |
-| POLL-01 | Phase 05 | Pending |
-| POLL-02 | Phase 05 | Pending |
+| POLL-01 | Phase 05 | Complete |
+| POLL-02 | Phase 05 | Complete |
 | SMOKE-01 | Phase 07 | Pending |
 | SMOKE-02 | Phase 07 | Pending |
 | SMOKE-03 | Phase 07 | Pending |

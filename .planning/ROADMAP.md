@@ -105,7 +105,10 @@
   1. When Coolify returns `status=failed` on a deployment, the workflow job exits non-zero within one polling cycle with a message directing the operator to the Coolify UI — no 6-minute health-check timeout occurs
   2. Both `deploy-staging` and `deploy-production` wait for `status=finished` before running the health check — health checks never race against an in-progress container pull
   3. Deployment polling status is logged at each interval so the operator can see Coolify's progress without opening the UI
-**Plans**: TBD
+**Plans**: 1 plan
+- [x] 05-01-PLAN.md — Add trigger+poll step to deploy-staging and deploy-production jobs in generate-workflow.sh (POLL-01, POLL-02)
+
+**Status**: COMPLETE — executed 2026-06-13
 **UI hint**: no
 
 #### Phase 06: Promotion Integrity + Diagnostics
@@ -141,6 +144,6 @@
 | 02.1. new-user-onboarding | v1.0 | 4/4 | Complete | 2026-05-22 |
 | 3. Cleanup Script | v1.0 | 1/1 | Complete | 2026-05-22 |
 | 4. Multi-Server Deployment | v1.0 | 4/4 | Complete | 2026-06-07 |
-| 5. Deployment Polling | v1.1 | 0/? | Not started | - |
+| 5. Deployment Polling | v1.1 | 1/1 | Complete | 2026-06-13 |
 | 6. Promotion Integrity + Diagnostics | v1.1 | 0/? | Not started | - |
 | 7. Runtime Identity | v1.1 | 0/? | Not started | - |
