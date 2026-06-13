@@ -3,100 +3,93 @@
 **Defined:** 2026-05-21
 **Core Value:** A developer can clone this repo, run one command, see a working hello-world deployment on their Coolify server, and trust the skill is correct before using it for a real application.
 
-## v1 Requirements
+## v1.1 Requirements
 
-### Bug Fixes
+Requirements for milestone v1.1: Deployment Correctness. Each maps to roadmap phases.
 
-- [x] **BUG-01**: Running `/setup-coolify` on a repo generates a `deploy.yml` where the `deploy-production` job's `needs:` list references only jobs that exist in the same workflow file (currently references non-existent `smoke-staging` job)
-- [x] **BUG-02**: When `provision.sh` calls `doppler secrets get` and the subprocess fails (network error, revoked token, wrong project), the script exits with a clear error message identifying the specific key and failure reason — does not silently inject an empty value into Coolify
-- [x] **BUG-03**: `provision.sh` resolves the Coolify server UUID using a configurable server name read from `coolify.json` (with default `localhost`) — not a hardcoded string literal
+### DIAG — Deployment Diagnostics
 
-### E2E Test Framework
+- [ ] **DIAG-01**: The build job captures the full image digest (sha256) from `build-push-action` output and passes it as a job output alongside the short SHA tag
+- [ ] **DIAG-02**: The deploy-staging and deploy-production steps log the expected digest and tag at the start of each step
 
-- [x] **TEST-01**: Operator can run `bash test/e2e.sh` against a real Coolify server to provision a hello-world staging app and verify it responds to an HTTPS smoke test at `/api/health`
-- [x] **TEST-02**: E2E test writes a machine-readable test report to `test/results/YYYYMMDD-HHMMSS.json` containing: staging URL, Coolify project UUID, staging app UUID, per-step pass/fail results, and run timestamp
-- [x] **TEST-03**: E2E test does not auto-teardown the deployment on completion — staging app remains running so the operator can browse to the URL and verify the deployment visually
-- [x] **TEST-04**: E2E test target is fully configurable via env vars: `E2E_SERVER` (default: `vultr-stream`) and `E2E_BASE_DOMAIN` (default: `cicd.streamlinity.com`) — defaults are clearly documented as "change for other domains" in the script header
-- [x] **TEST-05**: E2E test script prints a completion summary: staging URL, test report path, and next step (`bash test/cleanup-deployment.sh <report-file>`)
+### POLL — Deployment Polling
 
-### Workflow Validation
+- [ ] **POLL-01**: After triggering a Coolify deploy, the workflow polls the Coolify deployments API until `status=finished` or `status=failed` (max 6 min) before proceeding to health checks
+- [ ] **POLL-02**: A `status=failed` Coolify deployment exits the workflow immediately with a clear error message directing the operator to the Coolify UI, rather than timing out on the health endpoint
 
-- [x] **VALID-01**: Running `bash test/validate-workflow.sh <path-to-deploy.yml>` reports YAML syntax validity (parses without error)
-- [x] **VALID-02**: `validate-workflow.sh` checks that every job name referenced in a `needs:` list exists as a defined job in the same workflow — exits non-zero and prints the offending reference if not
+### SMOKE — Smoke Tests
 
-### Cleanup
+- [ ] **SMOKE-01**: The staging smoke test extracts `version` from the health response body and asserts it matches the expected SHA tag; gracefully skips the assertion when the field is absent
+- [ ] **SMOKE-02**: The production deployment job includes a post-deploy smoke test (currently absent)
+- [ ] **SMOKE-03**: The production smoke test performs the same version assertion as staging (graceful skip when field absent)
 
-- [x] **CLEAN-01**: Operator can run `bash test/cleanup-deployment.sh <report-file>` to delete the Coolify project and apps created by an E2E test run, using the app IDs recorded in the specified test report file
-- [x] **CLEAN-02**: `cleanup-deployment.sh` prints a confirmation of what it deleted (project name, app names, UUIDs) and exits 0 on success
+### PROMOTE — Promotion Integrity
 
-## v2 Requirements
+- [ ] **PROMOTE-01**: A `verify-promotion` CI job runs after both deploys complete and asserts that Coolify's application record confirms the same image tag on both staging and production apps
+- [ ] **PROMOTE-02**: The `ghcr-cleanup` job depends on `verify-promotion`; cleanup does not run if the promotion assertion fails, preserving all tags in GHCR for debugging
 
-### Reliability
+### LAYER3 — Runtime Identity (app-side scaffolding)
 
-- **REL-01**: `coolify_curl` retries transient failures (HTTP 5xx, connection reset) up to 3 times with backoff before failing
-- **REL-02**: `provision.sh` uses create-new-then-revoke-old token rotation to avoid a window with no valid service token
-- **REL-03**: `coolify.yaml` write-back uses atomic file replacement (write to temp, then rename) to prevent truncation on interrupt
+- [ ] **LAYER3-01**: `generate-workflow.sh` passes `GIT_SHA` and `BUILD_TIMESTAMP` as build-args so images carry OCI `revision` and `created` labels
+- [ ] **LAYER3-02**: The `init.sh` Dockerfile template includes `ARG GIT_SHA`, `ARG BUILD_TIMESTAMP`, and corresponding `LABEL org.opencontainers.image.*` stanzas
 
-### Test Coverage
+### INV — Invariants Documentation
 
-- **TCOV-01**: Unit tests for `lib-coolify-api.sh` functions (URL construction, JSON parsing, UUID extraction) that run without a live Coolify instance
-- **TCOV-02**: E2E test base domain and server alias are configurable via `E2E_BASE_DOMAIN` and `E2E_SERVER` env vars (covered in v1 by TEST-04)
+- [ ] **INV-04**: `docs/invariants.md` documents INV-04: deployed image tag on each Coolify app must equal the build SHA (verified by `verify-promotion` job)
+- [ ] **INV-05**: `docs/invariants.md` documents INV-05: production smoke test must pass before the workflow completes
 
-### Maintainability
+## v1.0 Requirements (Completed)
 
-- **MAINT-01**: YAML parsing logic extracted into a shared `lib-yaml.sh` function (currently duplicated across `provision.sh`, `validate.sh`, `generate-workflow.sh`, `test/e2e.sh`)
-- **MAINT-02**: Stale env var cleanup — `provision.sh` removes Coolify env vars that are no longer in `env_vars` list in `coolify.yaml`
+- ✓ Fix `generate-workflow.sh`: `needs: [deploy-staging, build]` + smoke URL `/api/health` — Phase 01
+- ✓ Fix `provision.sh`: Doppler `returncode` check, hard-fail with per-key error — Phase 01
+- ✓ Fix `provision.sh`: `server_name` read from `coolify.json` (default `localhost`) — Phase 01
+- ✓ E2E test fails fast with actionable error when `E2E_SERVER`/`E2E_BASE_DOMAIN` unset — Phase 02.1
+- ✓ `SKILL.md` accurately describes provision flow — Phase 02.1
+- ✓ `README.md` Quick start section — Phase 02.1
+- ✓ `references/api-reference.md` uses placeholders — Phase 02.1
+- ✓ `test/cleanup-deployment.sh` — report-driven teardown — Phase 03
+- ✓ Idempotent Coolify provisioning via `/setup-coolify`
+- ✓ Same-image promotion CI/CD pipeline (build once → staging → production)
 
-### Multi-Server Deployment
+## Future Requirements
 
-- [x] **MSRV-01**: `coolify.yaml` supports an optional `deploy_server:` field specifying the name of a Coolify-registered server (e.g., `"my-app-vps"`) where apps are deployed. When absent, behavior is identical to today (uses "localhost" server — the Coolify host itself). No change required to existing `coolify.yaml` files.
-- [x] **MSRV-02**: `provision.sh` creates Coolify apps on the server identified by `deploy_server` in `coolify.yaml` (falling back to the `server_name` field in `coolify.json` server entry, then `"localhost"`). If the named server is not found in Coolify, the script exits with a clear error naming the server.
-- [x] **MSRV-03**: `validate.sh` checks that `deploy_server` (if set) exists as a registered server in Coolify before any provisioning occurs. Failure message names the missing server and lists available servers.
-- [x] **MSRV-04**: `coolify.json` server entries support an optional `deploy_ssh_host` field: the SSH alias for the deployment VPS (used for Docker volume creation and VPS IP resolution when the deployment target differs from the Coolify host). Falls back to `ssh_host` when absent.
-- [x] **MSRV-05**: DNS A records are provisioned using the deployment VPS IP (resolved via `deploy_ssh_host` if set, otherwise `ssh_host`). This ensures app domains resolve to the correct server when staging/production apps live on a different VPS than Coolify.
-- [x] **MSRV-06**: All existing repos that do not set `deploy_server:` in `coolify.yaml` continue to work without any modifications (full backward compatibility).
-- [x] **MSRV-07**: `docs/schema.md` and `docs/setup-guide.md` document `deploy_server:` and `deploy_ssh_host`, and include a "Deploy to a separate VPS" how-to section.
-- [x] **MSRV-08**: A migration guide documents the steps for converting an existing localhost-deployed Coolify app to a separate server (re-creation required — Coolify does not support moving apps between servers; guide covers running `/setup-coolify` with the new `deploy_server:` and removing the old localhost apps manually).
+### Health endpoint convention
+
+- **HEALTH-01**: Apps expose `{"status":"ok","version":"sha-XXXXXXX","built_at":"..."}` from their health endpoint for full version assertion coverage
 
 ## Out of Scope
 
 | Feature | Reason |
 |---------|--------|
-| Live GitHub Actions pipeline execution as test | Adds GitHub API dependency, requires push to real repo; static validation catches structural bugs |
-| Production deployment validation in E2E test | Staging smoke test is sufficient trust signal; production path is identical code |
-| Per-env build mode (`build_time: true`) | Reserved for future breaking change; current same-image promotion model is the design |
-| Private GHCR registry auth provisioning | Scope for a separate phase; document requirement in setup guide for now |
-| Multi-node Coolify cluster (Swarm/K8s) | Target architecture is single-node per server; `deploy_server` covers the VPS-per-env case |
+| VPS-level docker inspect verification | SSH round-trip adds latency and VPS dependency; Coolify API confirmation + health response covers the same ground more portably |
+| Coolify deployment log streaming | Log fetching is advisory; status polling catches failures; full log scraping adds complexity without proportionate value |
+| Per-commit digest pinning in Coolify (by digest rather than tag) | Short SHA tags are sufficiently unique in practice; digest pinning requires non-standard Coolify API support |
+| Live GitHub Actions pipeline execution as part of test | Static validation covers workflow correctness; live CI adds external dependency |
+| Production deployment validation beyond smoke test | Staging smoke test is sufficient trust signal for same-image promotion |
 
 ## Traceability
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| BUG-01 | Phase 1 | Complete |
-| BUG-02 | Phase 1 | Complete |
-| BUG-03 | Phase 1 | Complete |
-| TEST-01 | Phase 2 | Complete |
-| TEST-02 | Phase 2 | Complete |
-| TEST-03 | Phase 2 | Complete |
-| TEST-04 | Phase 2 | Complete |
-| TEST-05 | Phase 2 | Complete |
-| VALID-01 | Phase 2 | Complete |
-| VALID-02 | Phase 2 | Complete |
-| CLEAN-01 | Phase 3 | Complete |
-| CLEAN-02 | Phase 3 | Complete |
-| MSRV-01 | Phase 4 | Complete |
-| MSRV-02 | Phase 4 | Complete |
-| MSRV-03 | Phase 4 | Complete |
-| MSRV-04 | Phase 4 | Complete |
-| MSRV-05 | Phase 4 | Complete |
-| MSRV-06 | Phase 4 | Complete |
-| MSRV-07 | Phase 4 | Complete |
-| MSRV-08 | Phase 4 | Complete |
+| DIAG-01 | TBD | Pending |
+| DIAG-02 | TBD | Pending |
+| POLL-01 | TBD | Pending |
+| POLL-02 | TBD | Pending |
+| SMOKE-01 | TBD | Pending |
+| SMOKE-02 | TBD | Pending |
+| SMOKE-03 | TBD | Pending |
+| PROMOTE-01 | TBD | Pending |
+| PROMOTE-02 | TBD | Pending |
+| LAYER3-01 | TBD | Pending |
+| LAYER3-02 | TBD | Pending |
+| INV-04 | TBD | Pending |
+| INV-05 | TBD | Pending |
 
 **Coverage:**
-- v1 requirements: 12 total, mapped: 12 ✓
-- v2 MSRV requirements: 8 total, mapped: 8 ✓
+- v1.1 requirements: 13 total
+- Mapped to phases: 0 (roadmap pending)
+- Unmapped: 13 ⚠️
 
 ---
 *Requirements defined: 2026-05-21*
-*Last updated: 2026-05-21 — phase assignments added after roadmap creation*
+*Last updated: 2026-06-13 — milestone v1.1 requirements added*
