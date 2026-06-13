@@ -31,9 +31,21 @@ A developer can clone this repo, run one command, see a working hello-world depl
 - ✓ Same-image promotion CI/CD pipeline (build once → staging → production) — existing
 - ✓ Generated `.github/workflows/deploy.yml` — existing
 
+## Current Milestone: v1.1 Deployment Correctness
+
+**Goal:** Make same-image promotion verifiably correct by adding image digest tracking, deployment polling, a production smoke test, and a cross-environment assertion gate to the generated deploy.yml.
+
+**Target features:**
+- Image digest capture and logging from build step (Layer 1)
+- Coolify deployment API polling — pull failures surface immediately (Layer 2)
+- Enhanced smoke test with runtime version/SHA assertion (Layer 3)
+- `verify-promotion` job asserting tag match before ghcr-cleanup (Layer 4)
+- Production smoke test (currently absent)
+- INV-04 and INV-05 in docs/invariants.md
+
 ### Active
 
-_(no active requirements — all phases complete)_
+_(requirements being defined — see REQUIREMENTS.md)_
 
 ### Out of Scope
 
@@ -91,4 +103,4 @@ This document evolves at phase transitions and milestone boundaries.
 4. Update Context with current state
 
 ---
-*Last updated: 2026-05-22 — Phase 03: cleanup-script complete (milestone v1.0 done)*
+*Last updated: 2026-06-13 — Milestone v1.1: Deployment Correctness started*
