@@ -606,3 +606,4 @@ no silent misrouting.
 
 - **Verify your pipeline:** Follow **[docs/test-environment.md](./test-environment.md)** to run the end-to-end integration tests on your new server.
 - **Deploying to a different domain / organization?** Review the **[docs/fork-guide.md](./fork-guide.md)** to understand the clone vs. fork workflow for organization-wide custom templates.
+- **Onboarding a new team member?** Send them **[docs/developer-onboarding.md](./developer-onboarding.md)** — it covers Doppler CLI install, `doppler setup`, running the app locally, and personal overrides via `dev_personal`. They do not need Coolify access or `coolify.json`.

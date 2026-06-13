@@ -26,6 +26,7 @@ Choose the pathway that matches your goal to avoid reading in circles:
 |----------------------------|----------------------------|-------------|
 | **Learn the concepts** | 📊 [docs/architecture.md](./docs/architecture.md) | Component architecture, runtime pipelines, and directory layout |
 | **Set up a new server/domain** | 🚀 [docs/setup-guide.md](./docs/setup-guide.md) | Authoritative step-by-step from zero VPS to running pipeline |
+| **Join an existing project** | 👋 [docs/developer-onboarding.md](./docs/developer-onboarding.md) | Get Doppler secrets working locally on a new laptop |
 | **Run E2E integration tests** | 🧪 [docs/test-environment.md](./docs/test-environment.md) | Full guide to pushing the test image, running, and cleanup |
 | **Configure YAML or JSON fields** | 📄 [docs/schema.md](./docs/schema.md) | Field references, optional parameters, and annotated examples |
 | **Deploy a second domain / Fork** | 🌐 [docs/fork-guide.md](./docs/fork-guide.md) | Multi-domain configuration delta vs. making a true GitHub fork |
