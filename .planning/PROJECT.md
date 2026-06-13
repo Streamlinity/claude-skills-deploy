@@ -37,7 +37,7 @@ A developer can clone this repo, run one command, see a working hello-world depl
 
 **Target features:**
 - Image digest capture and logging from build step (Layer 1)
-- Coolify deployment API polling — pull failures surface immediately (Layer 2)
+- ✓ Coolify deployment API polling — pull failures surface immediately (Layer 2) — Validated in Phase 05: deployment-polling
 - Enhanced smoke test with runtime version/SHA assertion (Layer 3)
 - `verify-promotion` job asserting tag match before ghcr-cleanup (Layer 4)
 - Production smoke test (currently absent)
@@ -45,7 +45,11 @@ A developer can clone this repo, run one command, see a working hello-world depl
 
 ### Active
 
-_(requirements being defined — see REQUIREMENTS.md)_
+- DIAG-01, DIAG-02: Image digest capture + logging (Phase 06)
+- PROMOTE-01, PROMOTE-02: verify-promotion job + ghcr-cleanup gate (Phase 06)
+- INV-04, INV-05: invariants documentation (Phase 06)
+- SMOKE-01, SMOKE-02, SMOKE-03: version assertion in staging + production smoke tests (Phase 07)
+- LAYER3-01, LAYER3-02: GIT_SHA/BUILD_TIMESTAMP build-args + OCI labels (Phase 07)
 
 ### Out of Scope
 
