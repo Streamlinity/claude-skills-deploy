@@ -5,11 +5,11 @@ milestone_name: Deployment Correctness
 status: planning
 stopped_at: Completed 05-deployment-polling/05-01-PLAN.md
 last_updated: "2026-06-13T20:57:58.534Z"
-last_activity: 2026-06-13 — Milestone v1.1 roadmap created
+last_activity: 2026-06-13 — Phase 05 Plan 01 executed
 progress:
   total_phases: 3
   completed_phases: 0
-  total_plans: 0
+  total_plans: 1
   completed_plans: 1
   percent: 0
 ---
@@ -21,7 +21,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-21)
 
 **Core value:** A developer can clone this repo, run one command, see a working hello-world deployment on their Coolify server, and trust the skill is correct before using it for a real application.
-**Current focus:** Phase 05 — Deployment Polling
+**Current focus:** Phase 05 — deployment-polling
 
 ## Current Position
 

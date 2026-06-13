@@ -282,18 +282,6 @@ A Claude Code skills repo that provides a standardized, domain-agnostic way to d
 <!-- GSD:architecture-end -->
 
 <!-- GSD:workflow-start source:GSD defaults -->
-## GSD 1.x Workflow Enforcement
-
-Do NOT use the `gsd` CLI tool (which belongs to GSD 2.x). Instead, strictly follow the GSD 1.x workflows defined in `~/.claude/get-shit-done/workflows/` (such as `execute-plan.md`, `discuss-phase.md`, `plan-phase.md`, etc.) for all planning, discussion, and execution.
-
-For all execution:
-1. **Load Context**: Read `.planning/STATE.md` at startup to load project context.
-2. **Step Sequencing**: Sequentially follow the tasks in the active `*-PLAN.md` file under `.planning/phases/`.
-3. **Task Gates**: Perform the mandatory `<read_first>` file reads before editing, and verify all `<acceptance_criteria>` upon task completion.
-4. **State Management**: Update GSD 1.x project state, roadmap, and requirements exclusively using the helper script:
-   `node "$HOME/.claude/get-shit-done/bin/gsd-tools.cjs"` (e.g., `state advance-plan`, `roadmap update-plan-progress`, `requirements mark-complete`).
-5. **Commit Protocol**: After verifying each task, stage files individually and commit using the format: `{type}({phase}-{plan}): {description}`.
-6. **Plan Summary**: Create `{phase}-{plan}-SUMMARY.md` in the phase directory upon completion.
 <!-- GSD:workflow-end -->
 
 <!-- GSD:profile-start -->
