@@ -290,6 +290,18 @@ except Exception:
       _CREATES=$((_CREATES+1))
     fi
 
+    # INV-01: stale Coolify env var check (plan mode reports, apply mode removes)
+    _plan_stale=$(coolify_list_stale_app_envs "$APP_UUID")
+    if [ -n "$_plan_stale" ]; then
+      while IFS= read -r _sk; do
+        echo "  ~ INV-01  stale env var '$_sk' on $APP_NAME (will be removed by provision)"
+        _CHANGES=$((_CHANGES+1))
+      done <<< "$_plan_stale"
+    else
+      echo "  = INV-01  ${APP_NAME} env vars clean (DOPPLER_TOKEN only)"
+      _UNCHANGED=$((_UNCHANGED+1))
+    fi
+
     # DNS record
     if [ "$DNS_ENABLED" = true ]; then
       _rid=$(dns_cf_find_record "$DNS_ZONE_ID" "$DOMAIN" "A" || echo "")
@@ -447,7 +459,20 @@ PY
     echo "    ENVS synced (DOPPLER_TOKEN only — all other secrets fetched from Doppler at container start)"
   fi
 
-  # 2f. Verify volume mount round-trip — HARD FAIL if PATCH did not persist
+  # 2f. INV-01 enforcement: remove any Coolify env vars other than DOPPLER_TOKEN.
+  # Stale vars (set manually in the Coolify UI or by earlier provision methods)
+  # silently override the value Doppler returns, causing runtime config drift.
+  _removed_count=0
+  while IFS= read -r _line; do
+    [ -n "$_line" ] && echo "$_line" && _removed_count=$((_removed_count+1))
+  done < <(coolify_purge_stale_app_envs "$APP_UUID")
+  if [ "$_removed_count" -gt 0 ]; then
+    echo "    INV-01 enforced: removed $_removed_count stale Coolify env var(s)"
+  else
+    echo "    INV-01 OK: no stale env vars (DOPPLER_TOKEN only)"
+  fi
+
+  # 2h. Verify volume mount round-trip — HARD FAIL if PATCH did not persist
   ACTUAL_OPTS=$(coolify_curl GET "/applications/$APP_UUID" | python3 -c "import json,sys; print(json.load(sys.stdin).get('custom_docker_run_options','') or '')")
   if ! echo "$ACTUAL_OPTS" | grep -q "$VOLUME_NAME"; then
     echo "    FAIL: custom_docker_run_options did not round-trip the volume mount." >&2
@@ -458,7 +483,7 @@ PY
   fi
   echo "    VERIFY mount round-trip OK"
 
-  # 2g. Upsert DNS A record for this domain (only when dns: block is configured)
+  # 2i. Upsert DNS A record for this domain (only when dns: block is configured)
   if [ "$DNS_ENABLED" = true ]; then
     ZR=$(dns_upsert_a_record "$DOMAIN" "$DEPLOY_VPS_IP")   # echoes zone_id|record_id
     DNS_RECORD_IDS[$ENV_NAME]="${ZR##*|}"

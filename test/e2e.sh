@@ -835,6 +835,71 @@ if [ "${_dns_enabled:-false}" = "true" ]; then
   fi
 fi
 
+# ── Step 5b: INV-01 enforcement — stale Coolify env var detection and cleanup ──
+# Simulates the real-world bug: operator manually sets env vars in the Coolify UI
+# (or an earlier provision method did). Verifies that:
+#   1. validate.sh WARNs about the stale vars (non-blocking)
+#   2. provision.sh removes them (INV-01 enforcement)
+#   3. validate.sh is clean after the fix
+
+step "Step 5b: INV-01 enforcement (stale Coolify env var detection + cleanup)"
+
+# Inject a stale env var to simulate the bug
+echo "  Injecting stale env var STALE_TEST_KEY into staging app ($STG_APP_UUID)..."
+coolify_curl PATCH "/applications/$STG_APP_UUID/envs/bulk" \
+  '{"data":[{"key":"STALE_TEST_KEY","value":"should-not-be-here","is_preview":false}]}' >/dev/null
+
+_stale_before=$(coolify_list_stale_app_envs "$STG_APP_UUID")
+if [ -n "$_stale_before" ]; then
+  echo "  Confirmed stale vars in Coolify: $_stale_before"
+else
+  fail "Step 5b: stale var injection did not appear in API (check coolify_list_stale_app_envs)"
+fi
+
+# validate.sh should WARN about INV-01 (non-blocking — exits 0 with WARN lines)
+echo "  Running validate.sh — expecting INV-01 WARN..."
+_val_out=$(bash "$SKILL_DIR/scripts/validate.sh" "$YAML_PATH" 2>&1)
+if echo "$_val_out" | grep -q "INV-01"; then
+  pass "Step 5b: validate.sh emitted INV-01 warning for stale env var"
+else
+  fail "Step 5b: validate.sh did NOT warn about INV-01 stale env var"
+  echo "$_val_out" | tail -20
+fi
+
+# provision.sh should remove the stale var (runs idempotently — token already wired)
+echo "  Running provision.sh to enforce INV-01 cleanup..."
+_prov_out=$(bash "$SKILL_DIR/scripts/provision.sh" "$YAML_PATH" 2>&1)
+if echo "$_prov_out" | grep -q "REMOVED stale env var"; then
+  pass "Step 5b: provision.sh removed stale env var (INV-01 enforced)"
+else
+  # Verify directly via API even if log line differs
+  _stale_after=$(coolify_list_stale_app_envs "$STG_APP_UUID")
+  if [ -z "$_stale_after" ]; then
+    pass "Step 5b: stale env vars removed (verified via API)"
+  else
+    fail "Step 5b: provision.sh did NOT remove stale env vars: $_stale_after"
+    echo "$_prov_out" | grep -E "INV-01|stale|REMOVED" || true
+  fi
+fi
+
+# Re-read UUIDs (provision may have written them back again — idempotent)
+eval "$(python3 -c "
+import yaml
+d=yaml.safe_load(open('$YAML_PATH'))
+ids=d.get('coolify_app_ids',{})
+print(f\"STG_APP_UUID='{ids.get('staging','')}'\")
+print(f\"PRD_APP_UUID='{ids.get('production','')}'\")
+")"
+
+# Final validate — must be clean
+echo "  Running validate.sh after cleanup — expecting no INV-01 warnings..."
+_val_clean=$(bash "$SKILL_DIR/scripts/validate.sh" "$YAML_PATH" 2>&1)
+if echo "$_val_clean" | grep -q "INV-01.*stale"; then
+  fail "Step 5b: validate.sh still warns about INV-01 after provision cleanup"
+else
+  pass "Step 5b: validate.sh clean after INV-01 enforcement (no stale vars)"
+fi
+
 # ── Step 6: Trigger staging deploy ────────────────────────────────────────────
 
 step "Step 6: Trigger staging deploy"

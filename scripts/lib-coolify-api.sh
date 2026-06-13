@@ -184,3 +184,55 @@ deps = d.get('deployments',[])
 if deps: print(deps[0].get('deployment_uuid',''))
 "
 }
+
+coolify_delete_app_env() {
+  # Delete a single env var by its uuid. Silent on 404 (already gone).
+  local app_uuid="$1" env_uuid="$2"
+  coolify_curl DELETE "/applications/${app_uuid}/envs/${env_uuid}" >/dev/null 2>&1 || true
+}
+
+coolify_purge_stale_app_envs() {
+  # Delete all env vars on an app except DOPPLER_TOKEN.
+  # Coolify stores each var twice (is_preview false + true) — both are deleted.
+  # Prints one "REMOVED stale env var: KEY (uuid: UUID)" line per deletion.
+  local app_uuid="$1"
+  local raw
+  raw=$(coolify_curl GET "/applications/${app_uuid}/envs" 2>/dev/null || echo "")
+  [ -z "$raw" ] && return
+  echo "$raw" | python3 -c "
+import json,sys
+try:
+  items=json.load(sys.stdin)
+  if isinstance(items,dict): items=items.get('data',[])
+  for e in items:
+    k=e.get('key','')
+    u=e.get('uuid','')
+    if k and k!='DOPPLER_TOKEN' and u:
+      print(u+'\t'+k)
+except: pass
+" 2>/dev/null | while IFS=$'\t' read -r _uuid _key; do
+    [ -z "$_uuid" ] && continue
+    coolify_delete_app_env "$app_uuid" "$_uuid"
+    echo "    REMOVED stale env var: $_key (uuid: $_uuid)"
+  done
+}
+
+coolify_list_stale_app_envs() {
+  # Print unique keys of non-DOPPLER_TOKEN env vars on an app (deduped preview/non-preview).
+  local app_uuid="$1"
+  local raw
+  raw=$(coolify_curl GET "/applications/${app_uuid}/envs" 2>/dev/null || echo "")
+  [ -z "$raw" ] && return
+  echo "$raw" | python3 -c "
+import json,sys
+try:
+  items=json.load(sys.stdin)
+  if isinstance(items,dict): items=items.get('data',[])
+  seen=set()
+  for e in items:
+    k=e.get('key','')
+    if k and k!='DOPPLER_TOKEN' and k not in seen:
+      print(k); seen.add(k)
+except: pass
+" 2>/dev/null
+}

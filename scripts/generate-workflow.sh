@@ -69,6 +69,8 @@ name: Deploy
 on:
   push:
     branches: [main]
+  schedule:
+    - cron: '0 8 * * 1'   # Monday 8am UTC — weekly INV-01 drift check
 
 permissions:
   contents: read
@@ -159,6 +161,38 @@ jobs:
           package-name: $PACKAGE
           package-type: container
           min-versions-to-keep: $RETENTION
+
+  drift-check:
+    # Runs on the weekly schedule only — never on push.
+    # INV-01: each Coolify app must hold exactly one env var (DOPPLER_TOKEN).
+    # Any other var silently overrides Doppler values at container start.
+    # If this job fails, run /setup-coolify (provision) in the target repo to clean up.
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    env:
+      COOLIFY_API_KEY: \${{ secrets.COOLIFY_API_KEY }}
+      COOLIFY_URL: $COOLIFY_URL
+      STAGING_APP_UUID: $STAGING_APP_UUID
+      PROD_APP_UUID: $PROD_APP_UUID
+    steps:
+      - name: INV-01 — verify only DOPPLER_TOKEN is set in each Coolify app
+        run: |
+          set -e
+          failed=0
+          for uuid in "\$STAGING_APP_UUID" "\$PROD_APP_UUID"; do
+            stale=\$(curl -sfS "\$COOLIFY_URL/api/v1/applications/\$uuid/envs" \\
+              -H "Authorization: Bearer \$COOLIFY_API_KEY" \\
+              | jq -r '(if type == "array" then . else (.data // []) end) | [.[] | select(.key != "DOPPLER_TOKEN") | .key] | unique | join(" ")' \\
+              2>/dev/null || echo "")
+            if [ -n "\$stale" ]; then
+              echo "FAIL INV-01 uuid=\$uuid: stale vars found: \$stale"
+              echo "     Fix: run /setup-coolify (provision) in the target repo to remove them."
+              failed=1
+            else
+              echo "OK   INV-01 uuid=\$uuid (DOPPLER_TOKEN only)"
+            fi
+          done
+          exit \$failed
 YAML
 
 # Validate output is parseable YAML

@@ -390,6 +390,44 @@ if [ "$ERRORS" -gt 0 ]; then
   exit 1
 fi
 
+# ── INV-01: Coolify apps must hold exactly one env var — DOPPLER_TOKEN ─────────
+# Any other Coolify env var silently overrides the Doppler value the running
+# container sees, leading to hard-to-diagnose config drift.
+# Non-blocking (WARN only) — provision.sh actively removes stale vars.
+# Skipped when coolify_app_ids are not yet populated (pre-provision state).
+_inv01_stale_found=0
+_inv01_apps=$(python3 - "$YAML_PATH" <<'PY'
+import yaml, sys
+d = yaml.safe_load(open(sys.argv[1]))
+ids = d.get('coolify_app_ids') or {}
+for env, uuid in ids.items():
+    if uuid:
+        print(f"{env}\t{uuid}")
+PY
+)
+if [ -n "$_inv01_apps" ]; then
+  while IFS=$'\t' read -r _inv01_env _inv01_uuid; do
+    [ -z "$_inv01_uuid" ] && continue
+    _inv01_stale=$(coolify_list_stale_app_envs "$_inv01_uuid")
+    if [ -n "$_inv01_stale" ]; then
+      while IFS= read -r _inv01_key; do
+        warn "INV-01:${PROJECT}-${_inv01_env}: stale Coolify env var '$_inv01_key' (only DOPPLER_TOKEN allowed)"
+        _inv01_stale_found=$((_inv01_stale_found+1))
+      done <<< "$_inv01_stale"
+    else
+      echo "validate: INV-01 ${PROJECT}-${_inv01_env} — env vars OK (DOPPLER_TOKEN only)"
+    fi
+  done <<< "$_inv01_apps"
+  if [ "$_inv01_stale_found" -gt 0 ]; then
+    echo "" >&2
+    echo "  INV-01: stale Coolify env vars override Doppler values at runtime." >&2
+    echo "  Run /setup-coolify (provision) to enforce the invariant and remove them." >&2
+    echo "" >&2
+  fi
+else
+  echo "validate: INV-01 check skipped — coolify_app_ids not yet set (pre-provision state)"
+fi
+
 echo "OK: All keys present in $DOPPLER_PROJECT/{$(IFS=,; echo "${_DOPPLER_CONFIGS[*]}")}"
 echo "OK: $COOLIFY_URL API reachable"
 echo "OK: ready to provision (run /setup-coolify without arguments)"
