@@ -167,10 +167,33 @@ jobs:
             -H "Authorization: Bearer \$COOLIFY_API_KEY" \\
             -H "Content-Type: application/json" \\
             -d "{\\"docker_registry_image_tag\\":\\"\$TAG\\"}"
-      - name: Trigger production deploy
+      - name: Deploy production + wait for Coolify
         run: |
-          curl -sfS "\$COOLIFY_URL/api/v1/deploy?uuid=\$PROD_APP_UUID&force=false" \\
-            -H "Authorization: Bearer \$COOLIFY_API_KEY"
+          DEPLOY_RESPONSE=\$(curl -sfS "\$COOLIFY_URL/api/v1/deploy?uuid=\$PROD_APP_UUID&force=false" \\
+            -H "Authorization: Bearer \$COOLIFY_API_KEY")
+          DEPLOYMENT_UUID=\$(echo "\$DEPLOY_RESPONSE" | jq -r '.deployments[0].deployment_uuid')
+          echo "Triggered production deploy: deployment_uuid=\$DEPLOYMENT_UUID"
+          sleep 5
+          timed_out=1
+          for i in \$(seq 1 36); do
+            STATUS=\$(curl -sfS "\$COOLIFY_URL/api/v1/deployments/\$DEPLOYMENT_UUID" \\
+              -H "Authorization: Bearer \$COOLIFY_API_KEY" \\
+              | jq -r '.status' 2>/dev/null || echo "unknown")
+            echo "[\$i/36] status=\$STATUS"
+            if [ "\$STATUS" = "finished" ]; then
+              echo "Coolify deploy finished"; timed_out=0; break
+            elif [ "\$STATUS" = "failed" ] || [ "\$STATUS" = "cancelled" ]; then
+              echo "Coolify deploy \$STATUS: deployment_uuid=\$DEPLOYMENT_UUID" >&2
+              echo "View in Coolify UI: \$COOLIFY_URL" >&2
+              exit 1
+            fi
+            sleep 10
+          done
+          if [ "\$timed_out" -eq 1 ]; then
+            echo "Coolify deploy timed out after 6 minutes: deployment_uuid=\$DEPLOYMENT_UUID" >&2
+            echo "View in Coolify UI: \$COOLIFY_URL" >&2
+            exit 1
+          fi
 
   ghcr-cleanup:
     needs: deploy-production
