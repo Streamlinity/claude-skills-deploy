@@ -81,6 +81,7 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       tag: \${{ steps.tag.outputs.short_sha }}
+      digest: \${{ steps.build.outputs.digest }}
     steps:
       - uses: actions/checkout@v4
       - id: tag
@@ -90,7 +91,8 @@ jobs:
           registry: ghcr.io
           username: \${{ github.actor }}
           password: \${{ secrets.GITHUB_TOKEN }}
-      - uses: docker/build-push-action@v6
+      - id: build
+        uses: docker/build-push-action@v6
         with:
           context: $BUILD_CONTEXT
           file: $BUILD_DOCKERFILE
@@ -106,10 +108,12 @@ jobs:
       COOLIFY_URL: $COOLIFY_URL
       STAGING_APP_UUID: $STAGING_APP_UUID
       TAG: \${{ needs.build.outputs.tag }}
+      DIGEST: \${{ needs.build.outputs.digest }}
       STAGING_DOMAIN: $STAGING_DOMAIN
     steps:
       - name: Set image tag on staging app
         run: |
+          echo "Deploying tag=\$TAG digest=\$DIGEST"
           curl -sfS -X PATCH "\$COOLIFY_URL/api/v1/applications/\$STAGING_APP_UUID" \\
             -H "Authorization: Bearer \$COOLIFY_API_KEY" \\
             -H "Content-Type: application/json" \\
@@ -137,9 +141,11 @@ jobs:
       COOLIFY_URL: $COOLIFY_URL
       PROD_APP_UUID: $PROD_APP_UUID
       TAG: \${{ needs.build.outputs.tag }}
+      DIGEST: \${{ needs.build.outputs.digest }}
     steps:
       - name: Set same image tag on production app (no rebuild)
         run: |
+          echo "Deploying tag=\$TAG digest=\$DIGEST"
           curl -sfS -X PATCH "\$COOLIFY_URL/api/v1/applications/\$PROD_APP_UUID" \\
             -H "Authorization: Bearer \$COOLIFY_API_KEY" \\
             -H "Content-Type: application/json" \\
