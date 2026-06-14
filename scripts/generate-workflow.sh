@@ -155,8 +155,41 @@ jobs:
           curl -sfS "\$COOLIFY_URL/api/v1/deploy?uuid=\$PROD_APP_UUID&force=false" \\
             -H "Authorization: Bearer \$COOLIFY_API_KEY"
 
+  verify-promotion:
+    # INV-04: assert staging and production are on the same image tag before cleanup.
+    # Runs after both deploys complete. Hard-fails if either app's docker_registry_image_tag
+    # differs from the build tag — blocks ghcr-cleanup so tags are preserved for debugging.
+    needs: [deploy-staging, deploy-production]
+    runs-on: ubuntu-latest
+    env:
+      COOLIFY_API_KEY: \${{ secrets.COOLIFY_API_KEY }}
+      COOLIFY_URL: $COOLIFY_URL
+      STAGING_APP_UUID: $STAGING_APP_UUID
+      PROD_APP_UUID: $PROD_APP_UUID
+      TAG: \${{ needs.build.outputs.tag }}
+    steps:
+      - name: Assert same image tag on staging and production
+        run: |
+          set -e
+          failed=0
+          for uuid in "\$STAGING_APP_UUID" "\$PROD_APP_UUID"; do
+            actual=\$(curl -sfS "\$COOLIFY_URL/api/v1/applications/\$uuid" \\
+              -H "Authorization: Bearer \$COOLIFY_API_KEY" \\
+              | jq -r '.docker_registry_image_tag' 2>/dev/null || echo "")
+            if [ "\$actual" = "\$TAG" ]; then
+              echo "OK   verify-promotion uuid=\$uuid tag=\$actual"
+            else
+              echo "FAIL verify-promotion uuid=\$uuid expected=\$TAG actual=\$actual"
+              failed=1
+            fi
+          done
+          if [ "\$failed" -eq 1 ]; then
+            echo "FAIL verify-promotion: diverged tags detected — ghcr-cleanup blocked" >&2
+            exit 1
+          fi
+
   ghcr-cleanup:
-    needs: deploy-production
+    needs: verify-promotion
     runs-on: ubuntu-latest
     permissions:
       packages: write
