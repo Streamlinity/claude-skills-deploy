@@ -2,14 +2,14 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Deployment Correctness
-status: completed
+status: executing
 stopped_at: Completed 05-deployment-polling/05-01-PLAN.md
-last_updated: "2026-06-13T21:02:46.447Z"
-last_activity: 2026-06-13
+last_updated: "2026-06-14T01:14:33.113Z"
+last_activity: 2026-06-14 -- Phase 06 execution started
 progress:
   total_phases: 3
   completed_phases: 1
-  total_plans: 1
+  total_plans: 3
   completed_plans: 1
   percent: 0
 ---
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-21)
 
 **Core value:** A developer can clone this repo, run one command, see a working hello-world deployment on their Coolify server, and trust the skill is correct before using it for a real application.
-**Current focus:** Phase 05 — deployment-polling
+**Current focus:** Phase 06 — Promotion Integrity + Diagnostics
 
 ## Current Position
 
-Phase: 06
-Plan: Not started
-Status: Phase 05 complete (1/1 plans executed)
-Last activity: 2026-06-13
+Phase: 06 (Promotion Integrity + Diagnostics) — EXECUTING
+Plan: 1 of 2
+Status: Executing Phase 06
+Last activity: 2026-06-14 -- Phase 06 execution started
 
 **Progress:** [░░░░░░░░░░] 0% (v1.1)
 
