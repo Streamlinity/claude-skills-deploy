@@ -9,8 +9,8 @@ Requirements for milestone v1.1: Deployment Correctness. Each maps to roadmap ph
 
 ### DIAG — Deployment Diagnostics
 
-- [ ] **DIAG-01**: The build job captures the full image digest (sha256) from `build-push-action` output and passes it as a job output alongside the short SHA tag
-- [ ] **DIAG-02**: The deploy-staging and deploy-production steps log the expected digest and tag at the start of each step
+- [x] **DIAG-01**: The build job captures the full image digest (sha256) from `build-push-action` output and passes it as a job output alongside the short SHA tag
+- [x] **DIAG-02**: The deploy-staging and deploy-production steps log the expected digest and tag at the start of each step
 
 ### POLL — Deployment Polling
 
@@ -25,8 +25,8 @@ Requirements for milestone v1.1: Deployment Correctness. Each maps to roadmap ph
 
 ### PROMOTE — Promotion Integrity
 
-- [ ] **PROMOTE-01**: A `verify-promotion` CI job runs after both deploys complete and asserts that Coolify's application record confirms the same image tag on both staging and production apps
-- [ ] **PROMOTE-02**: The `ghcr-cleanup` job depends on `verify-promotion`; cleanup does not run if the promotion assertion fails, preserving all tags in GHCR for debugging
+- [x] **PROMOTE-01**: A `verify-promotion` CI job runs after both deploys complete and asserts that Coolify's application record confirms the same image tag on both staging and production apps
+- [x] **PROMOTE-02**: The `ghcr-cleanup` job depends on `verify-promotion`; cleanup does not run if the promotion assertion fails, preserving all tags in GHCR for debugging
 
 ### LAYER3 — Runtime Identity (app-side scaffolding)
 
@@ -71,15 +71,15 @@ Requirements for milestone v1.1: Deployment Correctness. Each maps to roadmap ph
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DIAG-01 | Phase 06 | Pending |
-| DIAG-02 | Phase 06 | Pending |
+| DIAG-01 | Phase 06 | Complete |
+| DIAG-02 | Phase 06 | Complete |
 | POLL-01 | Phase 05 | Complete |
 | POLL-02 | Phase 05 | Complete |
 | SMOKE-01 | Phase 07 | Pending |
 | SMOKE-02 | Phase 07 | Pending |
 | SMOKE-03 | Phase 07 | Pending |
-| PROMOTE-01 | Phase 06 | Pending |
-| PROMOTE-02 | Phase 06 | Pending |
+| PROMOTE-01 | Phase 06 | Complete |
+| PROMOTE-02 | Phase 06 | Complete |
 | LAYER3-01 | Phase 07 | Pending |
 | LAYER3-02 | Phase 07 | Pending |
 | INV-04 | Phase 06 | Pending |
