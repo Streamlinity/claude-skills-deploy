@@ -142,5 +142,5 @@
 | 3. Cleanup Script | v1.0 | 1/1 | Complete | 2026-05-22 |
 | 4. Multi-Server Deployment | v1.0 | 4/4 | Complete | 2026-06-07 |
 | 5. Deployment Polling | v1.1 | 0/? | Not started | - |
-| 6. Promotion Integrity + Diagnostics | v1.1 | 0/? | Not started | - |
+| 6. Promotion Integrity + Diagnostics | v1.1 | 1/2 | In Progress | - |
 | 7. Runtime Identity | v1.1 | 0/? | Not started | - |

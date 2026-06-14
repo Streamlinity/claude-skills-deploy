@@ -2,12 +2,12 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Deployment Correctness
-current_phase: 05
-current_phase_name: Deployment Polling
-current_plan: ~
-status: planning
-stopped_at: ~
-last_updated: "2026-06-13T00:00:00.000Z"
+current_phase: 06
+current_phase_name: Promotion Integrity + Diagnostics
+current_plan: "02"
+status: executing
+stopped_at: "Completed 06-02-PLAN.md"
+last_updated: "2026-06-13T18:20:00.000Z"
 last_activity: 2026-06-13
 progress:
   total_phases: 3

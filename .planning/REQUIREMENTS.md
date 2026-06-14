@@ -35,8 +35,8 @@ Requirements for milestone v1.1: Deployment Correctness. Each maps to roadmap ph
 
 ### INV — Invariants Documentation
 
-- [ ] **INV-04**: `docs/invariants.md` documents INV-04: deployed image tag on each Coolify app must equal the build SHA (verified by `verify-promotion` job)
-- [ ] **INV-05**: `docs/invariants.md` documents INV-05: production smoke test must pass before the workflow completes
+- [x] **INV-04**: `docs/invariants.md` documents INV-04: deployed image tag on each Coolify app must equal the build SHA (verified by `verify-promotion` job)
+- [x] **INV-05**: `docs/invariants.md` documents INV-05: production smoke test must pass before the workflow completes
 
 ## v1.0 Requirements (Completed)
 
@@ -82,8 +82,8 @@ Requirements for milestone v1.1: Deployment Correctness. Each maps to roadmap ph
 | PROMOTE-02 | Phase 06 | Pending |
 | LAYER3-01 | Phase 07 | Pending |
 | LAYER3-02 | Phase 07 | Pending |
-| INV-04 | Phase 06 | Pending |
-| INV-05 | Phase 06 | Pending |
+| INV-04 | Phase 06 | Complete |
+| INV-05 | Phase 06 | Complete |
 
 **Coverage:**
 - v1.1 requirements: 13 total
