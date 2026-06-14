@@ -134,7 +134,9 @@
   2. The staging smoke test extracts `version` from the health response and asserts it equals `sha-<TAG>`; the job passes without error when the `version` field is absent
   3. `deploy-production` includes a post-deploy smoke test with the same version assertion (currently absent), also with graceful skip when the field is absent
   4. The `init.sh` Dockerfile template scaffold includes `ARG GIT_SHA`, `ARG BUILD_TIMESTAMP`, and corresponding OCI `LABEL` stanzas so new repos get identity baking out of the box
-**Plans**: TBD
+**Plans**: 2 plans
+- [ ] 07-01-PLAN.md — generate-workflow.sh: GIT_SHA/BUILD_TIMESTAMP build-args, Assert staging version step, production smoke test, Assert production version step (LAYER3-01, SMOKE-01, SMOKE-02, SMOKE-03)
+- [ ] 07-02-PLAN.md — init/templates/Dockerfile.doppler.snippet: prepend ARG GIT_SHA, ARG BUILD_TIMESTAMP, OCI LABEL stanzas (LAYER3-02)
 **UI hint**: no
 
 ## Progress
@@ -148,4 +150,4 @@
 | 4. Multi-Server Deployment | v1.0 | 4/4 | Complete | 2026-06-07 |
 | 5. Deployment Polling | v1.1 | 1/1 | Complete | 2026-06-13 |
 | 6. Promotion Integrity + Diagnostics | v1.1 | 0/2 | Not started | - |
-| 7. Runtime Identity | v1.1 | 0/? | Not started | - |
+| 7. Runtime Identity | v1.1 | 0/2 | Not started | - |
