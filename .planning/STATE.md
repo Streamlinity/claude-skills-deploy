@@ -2,18 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Deployment Correctness
-current_phase: 05
-current_phase_name: Deployment Polling
-current_plan: ~
 status: planning
-stopped_at: ~
-last_updated: "2026-06-13T00:00:00.000Z"
-last_activity: 2026-06-13
+stopped_at: Completed 06-promotion-integrity-diagnostics/06-01-PLAN.md
+last_updated: "2026-06-14T01:19:24.664Z"
+last_activity: 2026-06-13 — Milestone v1.1 roadmap created
 progress:
   total_phases: 3
   completed_phases: 0
   total_plans: 0
-  completed_plans: 14
+  completed_plans: 1
   percent: 0
 ---
 
@@ -33,7 +30,7 @@ Plan: —
 Status: Planning (roadmap created, no plans written yet)
 Last activity: 2026-06-13 — Milestone v1.1 roadmap created
 
-**Progress:** [__________] 0% (v1.1)
+**Progress:** [░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
@@ -65,6 +62,7 @@ Last activity: 2026-06-13 — Milestone v1.1 roadmap created
 | Phase 02.1-new-user-onboarding P02 | 2 | 2 tasks | 1 files |
 | Phase 02.1-new-user-onboarding P01 | 2 | 2 tasks | 1 files |
 | Phase 03-cleanup-script P01 | 3 | 2 tasks | 2 files |
+| Phase 06 P01 | 238 | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -97,6 +95,8 @@ Recent decisions affecting current work:
 - [v1.1 Roadmap]: Phase 05 (polling) delivers highest value with zero app changes — replaces sleep-then-health-check with status=finished gate
 - [v1.1 Roadmap]: Phase 06 bundles DIAG + PROMOTE + INV — all are pure CI changes in generate-workflow.sh and docs with no app-side dependency
 - [v1.1 Roadmap]: Phase 07 (runtime identity) is separate because it requires Dockerfile + health endpoint changes per repo; graceful-skip default makes adoption incremental
+- [Phase 06]: id: build on docker/build-push-action gives access to steps.build.outputs.digest for digest traceability
+- [Phase 06]: verify-promotion depends on [deploy-staging, deploy-production] then ghcr-cleanup depends on verify-promotion — blocks tag cleanup on diverged tags
 
 ### Roadmap Evolution
 
@@ -113,8 +113,8 @@ None currently.
 
 ## Session Continuity
 
-Last session: 2026-06-13T00:00:00.000Z
-Stopped at: Roadmap created for v1.1
+Last session: 2026-06-14T01:19:24.660Z
+Stopped at: Completed 06-promotion-integrity-diagnostics/06-01-PLAN.md
 Resume file: None
 
 ### Next Session TODO
