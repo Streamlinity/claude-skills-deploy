@@ -257,7 +257,7 @@ jobs:
     # INV-04: assert staging and production are on the same image tag before cleanup.
     # Runs after both deploys complete. Hard-fails if either app's docker_registry_image_tag
     # differs from the build tag — blocks ghcr-cleanup so tags are preserved for debugging.
-    needs: [deploy-staging, deploy-production]
+    needs: [deploy-staging, deploy-production, build]
     runs-on: ubuntu-latest
     env:
       COOLIFY_API_KEY: \${{ secrets.COOLIFY_API_KEY }}
