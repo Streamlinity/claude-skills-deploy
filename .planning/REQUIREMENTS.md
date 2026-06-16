@@ -19,9 +19,9 @@ Requirements for milestone v1.1: Deployment Correctness. Each maps to roadmap ph
 
 ### SMOKE — Smoke Tests
 
-- [ ] **SMOKE-01**: The staging smoke test extracts `version` from the health response body and asserts it matches the expected SHA tag; gracefully skips the assertion when the field is absent
-- [ ] **SMOKE-02**: The production deployment job includes a post-deploy smoke test (currently absent)
-- [ ] **SMOKE-03**: The production smoke test performs the same version assertion as staging (graceful skip when field absent)
+- [x] **SMOKE-01**: The staging smoke test extracts `version` from the health response body and asserts it matches the expected SHA tag; gracefully skips the assertion when the field is absent
+- [x] **SMOKE-02**: The production deployment job includes a post-deploy smoke test (currently absent)
+- [x] **SMOKE-03**: The production smoke test performs the same version assertion as staging (graceful skip when field absent)
 
 ### PROMOTE — Promotion Integrity
 
@@ -30,7 +30,7 @@ Requirements for milestone v1.1: Deployment Correctness. Each maps to roadmap ph
 
 ### LAYER3 — Runtime Identity (app-side scaffolding)
 
-- [ ] **LAYER3-01**: `generate-workflow.sh` passes `GIT_SHA` and `BUILD_TIMESTAMP` as build-args so images carry OCI `revision` and `created` labels
+- [x] **LAYER3-01**: `generate-workflow.sh` passes `GIT_SHA` and `BUILD_TIMESTAMP` as build-args so images carry OCI `revision` and `created` labels
 - [ ] **LAYER3-02**: The `init.sh` Dockerfile template includes `ARG GIT_SHA`, `ARG BUILD_TIMESTAMP`, and corresponding `LABEL org.opencontainers.image.*` stanzas
 
 ### INV — Invariants Documentation
@@ -75,12 +75,12 @@ Requirements for milestone v1.1: Deployment Correctness. Each maps to roadmap ph
 | DIAG-02 | Phase 06 | Complete |
 | POLL-01 | Phase 05 | Complete |
 | POLL-02 | Phase 05 | Complete |
-| SMOKE-01 | Phase 07 | Pending |
-| SMOKE-02 | Phase 07 | Pending |
-| SMOKE-03 | Phase 07 | Pending |
+| SMOKE-01 | Phase 07 | Complete |
+| SMOKE-02 | Phase 07 | Complete |
+| SMOKE-03 | Phase 07 | Complete |
 | PROMOTE-01 | Phase 06 | Complete |
 | PROMOTE-02 | Phase 06 | Complete |
-| LAYER3-01 | Phase 07 | Pending |
+| LAYER3-01 | Phase 07 | Complete |
 | LAYER3-02 | Phase 07 | Pending |
 | INV-04 | Phase 06 | Complete |
 | INV-05 | Phase 06 | Complete |
