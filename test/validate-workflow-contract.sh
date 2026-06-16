@@ -165,9 +165,16 @@ else
   fail "C8b: provisioned app UUIDs not embedded in workflow"
 fi
 
-# C9 — no build-args (same-image promotion guarantee)
+# C9 — no env-specific build-args (same-image promotion guarantee)
+# Identity-only build-args (GIT_SHA, BUILD_TIMESTAMP) are allowed — they do not
+# break same-image promotion because their values are identical for staging and production.
 if grep -qE '^\s*build-args:' "$WF"; then
-  fail "C9: build-args present — env-specific builds break same-image promotion"
+  env_specific=$(grep -A5 'build-args:' "$WF" | grep -v 'GIT_SHA\|BUILD_TIMESTAMP' | grep -c '=') || true
+  if [ "$env_specific" -gt 0 ]; then
+    fail "C9: env-specific build-args present — breaks same-image promotion"
+  else
+    pass "C9: build-args are identity-only (GIT_SHA/BUILD_TIMESTAMP) — same-image promotion preserved"
+  fi
 else
   pass "C9: no build-args in build job"
 fi
