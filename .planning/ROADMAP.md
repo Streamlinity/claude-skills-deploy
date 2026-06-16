@@ -105,7 +105,9 @@
   1. When Coolify returns `status=failed` on a deployment, the workflow job exits non-zero within one polling cycle with a message directing the operator to the Coolify UI — no 6-minute health-check timeout occurs
   2. Both `deploy-staging` and `deploy-production` wait for `status=finished` before running the health check — health checks never race against an in-progress container pull
   3. Deployment polling status is logged at each interval so the operator can see Coolify's progress without opening the UI
-**Plans**: TBD
+**Plans**: 1 plan
+- [x] 05-01-PLAN.md — generate-workflow.sh: replace sleep-then-health-check with poll_deployment() loop for staging and production jobs (POLL-01, POLL-02)
+
 **UI hint**: no
 
 #### Phase 06: Promotion Integrity + Diagnostics
@@ -117,7 +119,11 @@
   2. A `verify-promotion` job asserts that Coolify's application records confirm the same image tag on both staging and production apps
   3. `ghcr-cleanup` depends on `verify-promotion` and does not run if the promotion assertion fails — all tags are preserved in GHCR for debugging
   4. `docs/invariants.md` documents INV-04 (deployed tag must equal build SHA) and INV-05 (production smoke test must pass before workflow completes)
-**Plans**: TBD
+**Plans**: 2 plans
+- [x] 06-01-PLAN.md — generate-workflow.sh + docs/invariants.md: image digest capture, verify-promotion job, ghcr-cleanup gate, INV-04/INV-05 docs (DIAG-01, DIAG-02, PROMOTE-01, PROMOTE-02, INV-04, INV-05)
+- [x] 06-02-PLAN.md — docs/invariants.md: add INV-04 and INV-05 entries (INV-04, INV-05)
+
+**Status**: COMPLETE — 2026-06-16
 **UI hint**: no
 
 #### Phase 07: Runtime Identity
@@ -129,7 +135,11 @@
   2. The staging smoke test extracts `version` from the health response and asserts it equals `sha-<TAG>`; the job passes without error when the `version` field is absent
   3. `deploy-production` includes a post-deploy smoke test with the same version assertion (currently absent), also with graceful skip when the field is absent
   4. The `init.sh` Dockerfile template scaffold includes `ARG GIT_SHA`, `ARG BUILD_TIMESTAMP`, and corresponding OCI `LABEL` stanzas so new repos get identity baking out of the box
-**Plans**: TBD
+**Plans**: 2 plans
+- [x] 07-01-PLAN.md — generate-workflow.sh: add GIT_SHA + BUILD_TIMESTAMP build-args to docker/build-push-action step (LAYER3-01)
+- [x] 07-02-PLAN.md — init/templates/Dockerfile.doppler.snippet: prepend ARG + LABEL stanzas for OCI runtime identity (LAYER3-02)
+
+**Status**: COMPLETE — 2026-06-16
 **UI hint**: no
 
 ## Progress
@@ -141,6 +151,6 @@
 | 02.1. new-user-onboarding | v1.0 | 4/4 | Complete | 2026-05-22 |
 | 3. Cleanup Script | v1.0 | 1/1 | Complete | 2026-05-22 |
 | 4. Multi-Server Deployment | v1.0 | 4/4 | Complete | 2026-06-07 |
-| 5. Deployment Polling | v1.1 | 0/? | Not started | - |
-| 6. Promotion Integrity + Diagnostics | v1.1 | 0/? | Not started | - |
-| 7. Runtime Identity | v1.1 | 0/? | Not started | - |
+| 5. Deployment Polling | v1.1 | 1/1 | Complete | 2026-06-16 |
+| 6. Promotion Integrity + Diagnostics | v1.1 | 2/2 | Complete | 2026-06-16 |
+| 7. Runtime Identity | v1.1 | 2/2 | Complete | 2026-06-16 |

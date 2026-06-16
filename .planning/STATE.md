@@ -2,19 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Deployment Correctness
-current_phase: 05
-current_phase_name: Deployment Polling
-current_plan: ~
-status: planning
-stopped_at: ~
-last_updated: "2026-06-13T00:00:00.000Z"
-last_activity: 2026-06-13
+current_phase: 07
+current_phase_name: runtime-identity
+current_plan: 2
+status: executing
+stopped_at: "Completed 07-runtime-identity/07-02-PLAN.md"
+last_updated: "2026-06-16T21:43:34.000Z"
+last_activity: 2026-06-16 -- Phase 07 plan 02 complete (LAYER3-02)
 progress:
   total_phases: 3
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 14
-  percent: 0
+  completed_phases: 3
+  total_plans: 5
+  completed_plans: 5
+  percent: 100
 ---
 
 # Project State
@@ -28,12 +28,12 @@ See: .planning/PROJECT.md (updated 2026-05-21)
 
 ## Current Position
 
-Phase: 05 — Deployment Polling
-Plan: —
-Status: Planning (roadmap created, no plans written yet)
-Last activity: 2026-06-13 — Milestone v1.1 roadmap created
+Phase: 07 (runtime-identity) — COMPLETE
+Plan: 2 of 2
+Status: Phase 07 complete — all v1.1 plans delivered
+Last activity: 2026-06-16 -- Completed 07-02 (LAYER3-02: OCI identity labels in Dockerfile template)
 
-**Progress:** [__________] 0% (v1.1)
+**Progress:** [##########] 100% (v1.1)
 
 ## Performance Metrics
 
@@ -65,6 +65,9 @@ Last activity: 2026-06-13 — Milestone v1.1 roadmap created
 | Phase 02.1-new-user-onboarding P02 | 2 | 2 tasks | 1 files |
 | Phase 02.1-new-user-onboarding P01 | 2 | 2 tasks | 1 files |
 | Phase 03-cleanup-script P01 | 3 | 2 tasks | 2 files |
+| Phase 05-deployment-polling P01 | 2 | 2 tasks | 1 files |
+| Phase 07-runtime-identity P01 | 4 | 1 tasks | 1 files |
+| Phase 07-runtime-identity P02 | 4 | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -97,6 +100,7 @@ Recent decisions affecting current work:
 - [v1.1 Roadmap]: Phase 05 (polling) delivers highest value with zero app changes — replaces sleep-then-health-check with status=finished gate
 - [v1.1 Roadmap]: Phase 06 bundles DIAG + PROMOTE + INV — all are pure CI changes in generate-workflow.sh and docs with no app-side dependency
 - [v1.1 Roadmap]: Phase 07 (runtime identity) is separate because it requires Dockerfile + health endpoint changes per repo; graceful-skip default makes adoption incremental
+- [Phase 07-runtime-identity]: LAYER3-02: Pure prepend of ARG + LABEL stanzas to Dockerfile.doppler.snippet; ARG defaults 'unknown' for safe local builds without --build-arg
 
 ### Roadmap Evolution
 
@@ -113,10 +117,10 @@ None currently.
 
 ## Session Continuity
 
-Last session: 2026-06-13T00:00:00.000Z
-Stopped at: Roadmap created for v1.1
+Last session: 2026-06-16T21:43:34.000Z
+Stopped at: Completed 07-runtime-identity/07-02-PLAN.md
 Resume file: None
 
 ### Next Session TODO
 
-Run `/gsd:plan-phase 05` to plan Phase 05: Deployment Polling.
+Phase 07 complete. All v1.1 milestone plans (05, 06, 07) delivered. Run `/gsd:complete-milestone` to close v1.1.
