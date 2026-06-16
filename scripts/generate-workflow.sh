@@ -14,6 +14,10 @@
 # startup by Coolify via the Doppler-managed DOPPLER_TOKEN. The Dockerfile keeps
 # ARG NEXT_PUBLIC_BASE_URL="" with an empty default for forward-compat, but this
 # generator deliberately omits it from the build-args.
+#
+# Exception: GIT_SHA and BUILD_TIMESTAMP are identity-only build-args — their values
+# are identical across staging and production (same commit, same timestamp), so they
+# do NOT break same-image promotion. They bake OCI revision/created labels into the image.
 
 set -euo pipefail
 
@@ -64,6 +68,8 @@ cat > "$OUT_PATH" << YAML
 # NOT passed as a --build-arg. Same-image promotion requires identical image bytes
 # across staging and production; env-specific values flow through DOPPLER_TOKEN at
 # container startup. See skillmap/Dockerfile for the rationale.
+# Exception: GIT_SHA and BUILD_TIMESTAMP are identity-only build-args (same commit
+# hash and timestamp for staging and production) — they do not break same-image promotion.
 name: Deploy
 
 on:
@@ -98,7 +104,12 @@ jobs:
           file: $BUILD_DOCKERFILE
           push: true
           tags: $REGISTRY_IMAGE_NAME:\${{ steps.tag.outputs.short_sha }}
-          # No build-args — same image, runtime env injection via Doppler.
+          # GIT_SHA and BUILD_TIMESTAMP are identity-only build-args (not env-specific).
+          # They bake OCI revision/created labels into the image without affecting
+          # same-image promotion — their values are identical for staging and production.
+          build-args: |
+            GIT_SHA=\${{ steps.tag.outputs.short_sha }}
+            BUILD_TIMESTAMP=\${{ github.event.head_commit.timestamp }}
 
   deploy-staging:
     needs: build
@@ -293,7 +304,7 @@ fi
 
 echo "WROTE $OUT_PATH"
 echo "  build context: $BUILD_CONTEXT  dockerfile: $BUILD_DOCKERFILE"
-echo "  build: ghcr.io tag = commit short SHA (NO build-args — runtime env via Doppler)"
+echo "  build: ghcr.io tag = commit short SHA (identity build-args only — runtime env via Doppler)"
 echo "  deploy-staging: same tag -> staging app $STAGING_APP_UUID"
 echo "  deploy-production: SAME tag -> production app $PROD_APP_UUID (auto after staging smoke test)"
 echo "  ghcr-cleanup: keep last $RETENTION tags of $PACKAGE"
