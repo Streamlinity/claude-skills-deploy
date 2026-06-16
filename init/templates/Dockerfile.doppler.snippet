@@ -1,3 +1,12 @@
+# ── Runtime identity (OCI labels) ─────────────────────────────────────────────
+# GIT_SHA and BUILD_TIMESTAMP are provided by generate-workflow.sh as build-args.
+# Defaults of "unknown" allow local docker build to succeed without --build-arg.
+# Place these lines in your final/runtime stage, before the Doppler install block.
+ARG GIT_SHA=unknown
+ARG BUILD_TIMESTAMP=unknown
+LABEL org.opencontainers.image.revision=$GIT_SHA
+LABEL org.opencontainers.image.created=$BUILD_TIMESTAMP
+
 # ============================================================================
 # Doppler CLI install + ENTRYPOINT — paste into your Dockerfile.
 # See: https://github.com/Streamlinity/claude-skills-deploy/blob/main/docs/setup-guide.md

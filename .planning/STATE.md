@@ -2,16 +2,19 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Deployment Correctness
+current_phase: 07
+current_phase_name: runtime-identity
+current_plan: 2
 status: executing
-stopped_at: Completed 07-runtime-identity/07-01-PLAN.md
+stopped_at: "Completed 07-runtime-identity/07-02-PLAN.md"
 last_updated: "2026-06-16T21:48:05.303Z"
-last_activity: 2026-06-16
+last_activity: 2026-06-16 -- Phase 07 complete (LAYER3-01, LAYER3-02, SMOKE-01, SMOKE-02, SMOKE-03)
 progress:
   total_phases: 3
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 5
-  completed_plans: 4
-  percent: 80
+  completed_plans: 5
+  percent: 100
 ---
 
 # Project State
@@ -25,12 +28,12 @@ See: .planning/PROJECT.md (updated 2026-05-21)
 
 ## Current Position
 
-Phase: 06 (Promotion Integrity + Diagnostics) — EXECUTING
+Phase: 07 (runtime-identity) — COMPLETE
 Plan: 2 of 2
-Status: Ready to execute
-Last activity: 2026-06-16
+Status: Phase 07 complete — all v1.1 plans delivered
+Last activity: 2026-06-16 -- Completed 07-01 + 07-02 in parallel (LAYER3-01, LAYER3-02, SMOKE-01-03)
 
-**Progress:** [████████░░] 80%
+**Progress:** [██████████] 100% (v1.1)
 
 ## Performance Metrics
 
@@ -64,6 +67,7 @@ Last activity: 2026-06-16
 | Phase 03-cleanup-script P01 | 3 | 2 tasks | 2 files |
 | Phase 05-deployment-polling P01 | 2 | 2 tasks | 1 files |
 | Phase 07-runtime-identity P01 | 4 | 2 tasks | 1 files |
+| Phase 07-runtime-identity P02 | 4 | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -100,6 +104,7 @@ Recent decisions affecting current work:
 - [Phase 05-deployment-polling]: timed_out=1 flag pattern (not subshell) for timeout detection — compatible with set -euo pipefail in generated workflow
 - [Phase 07-runtime-identity]: GIT_SHA and BUILD_TIMESTAMP are identity-only build-args — identical across staging and production, do not break same-image promotion
 - [Phase 07-runtime-identity]: Version assert uses graceful-skip pattern (exit 0) when health response lacks version field — allows incremental adoption without blocking CI
+- [Phase 07-runtime-identity]: LAYER3-02: Pure prepend of ARG + LABEL stanzas to Dockerfile.doppler.snippet; ARG defaults 'unknown' for safe local builds without --build-arg
 
 ### Roadmap Evolution
 
@@ -116,10 +121,10 @@ None currently.
 
 ## Session Continuity
 
-Last session: 2026-06-16T21:48:05.296Z
-Stopped at: Completed 07-runtime-identity/07-01-PLAN.md
+Last session: 2026-06-16T21:48:05.303Z
+Stopped at: Completed 07-runtime-identity/07-02-PLAN.md
 Resume file: None
 
 ### Next Session TODO
 
-Run `/gsd:plan-phase 05` to plan Phase 05: Deployment Polling.
+Phase 07 complete. All v1.1 milestone plans (05, 06, 07) delivered. Run `/gsd:complete-milestone` to close v1.1.

@@ -31,7 +31,7 @@ Requirements for milestone v1.1: Deployment Correctness. Each maps to roadmap ph
 ### LAYER3 — Runtime Identity (app-side scaffolding)
 
 - [x] **LAYER3-01**: `generate-workflow.sh` passes `GIT_SHA` and `BUILD_TIMESTAMP` as build-args so images carry OCI `revision` and `created` labels
-- [ ] **LAYER3-02**: The `init.sh` Dockerfile template includes `ARG GIT_SHA`, `ARG BUILD_TIMESTAMP`, and corresponding `LABEL org.opencontainers.image.*` stanzas
+- [x] **LAYER3-02**: The `init.sh` Dockerfile template includes `ARG GIT_SHA`, `ARG BUILD_TIMESTAMP`, and corresponding `LABEL org.opencontainers.image.*` stanzas
 
 ### INV — Invariants Documentation
 
@@ -81,7 +81,7 @@ Requirements for milestone v1.1: Deployment Correctness. Each maps to roadmap ph
 | PROMOTE-01 | Phase 06 | Complete |
 | PROMOTE-02 | Phase 06 | Complete |
 | LAYER3-01 | Phase 07 | Complete |
-| LAYER3-02 | Phase 07 | Pending |
+| LAYER3-02 | Phase 07 | Complete |
 | INV-04 | Phase 06 | Complete |
 | INV-05 | Phase 06 | Complete |
 

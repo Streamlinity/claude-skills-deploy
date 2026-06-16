@@ -121,8 +121,10 @@
   3. `ghcr-cleanup` depends on `verify-promotion` and does not run if the promotion assertion fails — all tags are preserved in GHCR for debugging
   4. `docs/invariants.md` documents INV-04 (deployed tag must equal build SHA) and INV-05 (production smoke test must pass before workflow completes)
 **Plans**: 2 plans
-- [ ] 06-01-PLAN.md — generate-workflow.sh: digest capture in build job, DIGEST env in deploy jobs, verify-promotion job, ghcr-cleanup dependency update (DIAG-01, DIAG-02, PROMOTE-01, PROMOTE-02)
-- [ ] 06-02-PLAN.md — docs/invariants.md: append INV-04 and INV-05 sections, update enforcement table (INV-04, INV-05)
+- [x] 06-01-PLAN.md — generate-workflow.sh: digest capture in build job, DIGEST env in deploy jobs, verify-promotion job, ghcr-cleanup dependency update (DIAG-01, DIAG-02, PROMOTE-01, PROMOTE-02)
+- [x] 06-02-PLAN.md — docs/invariants.md: append INV-04 and INV-05 sections, update enforcement table (INV-04, INV-05)
+
+**Status**: COMPLETE — 2026-06-13
 **UI hint**: no
 
 #### Phase 07: Runtime Identity
@@ -136,7 +138,9 @@
   4. The `init.sh` Dockerfile template scaffold includes `ARG GIT_SHA`, `ARG BUILD_TIMESTAMP`, and corresponding OCI `LABEL` stanzas so new repos get identity baking out of the box
 **Plans**: 2 plans
 - [x] 07-01-PLAN.md — generate-workflow.sh: GIT_SHA/BUILD_TIMESTAMP build-args, Assert staging version step, production smoke test, Assert production version step (LAYER3-01, SMOKE-01, SMOKE-02, SMOKE-03)
-- [ ] 07-02-PLAN.md — init/templates/Dockerfile.doppler.snippet: prepend ARG GIT_SHA, ARG BUILD_TIMESTAMP, OCI LABEL stanzas (LAYER3-02)
+- [x] 07-02-PLAN.md — init/templates/Dockerfile.doppler.snippet: prepend ARG GIT_SHA, ARG BUILD_TIMESTAMP, OCI LABEL stanzas (LAYER3-02)
+
+**Status**: COMPLETE — 2026-06-16
 **UI hint**: no
 
 ## Progress
@@ -149,5 +153,5 @@
 | 3. Cleanup Script | v1.0 | 1/1 | Complete | 2026-05-22 |
 | 4. Multi-Server Deployment | v1.0 | 4/4 | Complete | 2026-06-07 |
 | 5. Deployment Polling | v1.1 | 1/1 | Complete | 2026-06-13 |
-| 6. Promotion Integrity + Diagnostics | v1.1 | 0/2 | Not started | - |
-| 7. Runtime Identity | v1.1 | 0/2 | Not started | - |
+| 6. Promotion Integrity + Diagnostics | v1.1 | 2/2 | Complete | 2026-06-13 |
+| 7. Runtime Identity | v1.1 | 2/2 | Complete | 2026-06-16 |
