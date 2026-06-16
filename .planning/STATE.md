@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Deployment Correctness
 status: executing
-stopped_at: Completed 05-deployment-polling/05-01-PLAN.md
-last_updated: "2026-06-14T01:14:33.113Z"
-last_activity: 2026-06-14 -- Phase 06 execution started
+stopped_at: Completed 07-runtime-identity/07-01-PLAN.md
+last_updated: "2026-06-16T21:48:05.303Z"
+last_activity: 2026-06-16
 progress:
   total_phases: 3
-  completed_phases: 1
-  total_plans: 3
-  completed_plans: 1
-  percent: 0
+  completed_phases: 2
+  total_plans: 5
+  completed_plans: 4
+  percent: 80
 ---
 
 # Project State
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-05-21)
 ## Current Position
 
 Phase: 06 (Promotion Integrity + Diagnostics) — EXECUTING
-Plan: 1 of 2
-Status: Executing Phase 06
-Last activity: 2026-06-14 -- Phase 06 execution started
+Plan: 2 of 2
+Status: Ready to execute
+Last activity: 2026-06-16
 
-**Progress:** [░░░░░░░░░░] 0% (v1.1)
+**Progress:** [████████░░] 80%
 
 ## Performance Metrics
 
@@ -63,6 +63,7 @@ Last activity: 2026-06-14 -- Phase 06 execution started
 | Phase 02.1-new-user-onboarding P01 | 2 | 2 tasks | 1 files |
 | Phase 03-cleanup-script P01 | 3 | 2 tasks | 2 files |
 | Phase 05-deployment-polling P01 | 2 | 2 tasks | 1 files |
+| Phase 07-runtime-identity P01 | 4 | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -97,6 +98,8 @@ Recent decisions affecting current work:
 - [v1.1 Roadmap]: Phase 07 (runtime identity) is separate because it requires Dockerfile + health endpoint changes per repo; graceful-skip default makes adoption incremental
 - [Phase 05-deployment-polling]: 36 retries x 10s = 6 min max poll window matches existing smoke test duration; pull failures surface within one cycle
 - [Phase 05-deployment-polling]: timed_out=1 flag pattern (not subshell) for timeout detection — compatible with set -euo pipefail in generated workflow
+- [Phase 07-runtime-identity]: GIT_SHA and BUILD_TIMESTAMP are identity-only build-args — identical across staging and production, do not break same-image promotion
+- [Phase 07-runtime-identity]: Version assert uses graceful-skip pattern (exit 0) when health response lacks version field — allows incremental adoption without blocking CI
 
 ### Roadmap Evolution
 
@@ -113,8 +116,8 @@ None currently.
 
 ## Session Continuity
 
-Last session: 2026-06-13T20:57:58.532Z
-Stopped at: Completed 05-deployment-polling/05-01-PLAN.md
+Last session: 2026-06-16T21:48:05.296Z
+Stopped at: Completed 07-runtime-identity/07-01-PLAN.md
 Resume file: None
 
 ### Next Session TODO

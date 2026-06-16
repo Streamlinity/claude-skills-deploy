@@ -135,7 +135,7 @@
   3. `deploy-production` includes a post-deploy smoke test with the same version assertion (currently absent), also with graceful skip when the field is absent
   4. The `init.sh` Dockerfile template scaffold includes `ARG GIT_SHA`, `ARG BUILD_TIMESTAMP`, and corresponding OCI `LABEL` stanzas so new repos get identity baking out of the box
 **Plans**: 2 plans
-- [ ] 07-01-PLAN.md — generate-workflow.sh: GIT_SHA/BUILD_TIMESTAMP build-args, Assert staging version step, production smoke test, Assert production version step (LAYER3-01, SMOKE-01, SMOKE-02, SMOKE-03)
+- [x] 07-01-PLAN.md — generate-workflow.sh: GIT_SHA/BUILD_TIMESTAMP build-args, Assert staging version step, production smoke test, Assert production version step (LAYER3-01, SMOKE-01, SMOKE-02, SMOKE-03)
 - [ ] 07-02-PLAN.md — init/templates/Dockerfile.doppler.snippet: prepend ARG GIT_SHA, ARG BUILD_TIMESTAMP, OCI LABEL stanzas (LAYER3-02)
 **UI hint**: no
 
