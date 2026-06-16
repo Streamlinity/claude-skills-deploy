@@ -143,6 +143,18 @@
 **Status**: COMPLETE — 2026-06-16
 **UI hint**: no
 
+#### Phase 08: Workflow Defect Fixes
+**Goal**: Close the two active integration defects identified by the v1.1 milestone audit — the verify-promotion TAG resolution bug that makes every promotion assertion fail, and the contract test C9 rule that rejects valid identity build-args — restoring PROMOTE-01, INV-04, and LAYER3-01 to verified status
+**Depends on**: Phase 07
+**Requirements**: PROMOTE-01, INV-04, LAYER3-01
+**Gap Closure:** Closes GAP-1, GAP-2, DEBT-2 from v1.1-MILESTONE-AUDIT.md
+**Success Criteria** (what must be TRUE):
+  1. `generate-workflow.sh` emits a `verify-promotion` job with `needs: [deploy-staging, deploy-production, build]`; `TAG` resolves to the correct SHA at runtime and the promotion assertion passes on a real workflow run
+  2. `test/validate-workflow-contract.sh` passes (exit 0) on a workflow generated after Phase 07 that includes `build-args: | GIT_SHA=... BUILD_TIMESTAMP=...`; C9 still rejects any env-specific build-arg (e.g. `NEXT_PUBLIC_BASE_URL`)
+  3. `docs/invariants.md` INV-05 "Enforced by" bullet references the actual implemented steps (`Smoke test production`, `Assert production version`) rather than `(planned: ...)`
+**Plans**: 0 plans
+**UI hint**: no
+
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
@@ -155,3 +167,4 @@
 | 5. Deployment Polling | v1.1 | 1/1 | Complete | 2026-06-13 |
 | 6. Promotion Integrity + Diagnostics | v1.1 | 2/2 | Complete | 2026-06-13 |
 | 7. Runtime Identity | v1.1 | 2/2 | Complete | 2026-06-16 |
+| 8. Workflow Defect Fixes | v1.1 | 0/3 | Pending | — |
