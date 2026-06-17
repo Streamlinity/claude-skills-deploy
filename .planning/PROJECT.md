@@ -55,6 +55,19 @@ A developer can clone this repo, run one command, see a working hello-world depl
 
 - **HEALTH-01**: Apps expose `{"status":"ok","version":"sha-XXXXXXX","built_at":"..."}` for full version assertion coverage — next milestone
 
+### Validated in Phase 999.1
+
+- ✓ `validate.sh` strictly read-only — Tier 1 hard fail (`doppler_token`), Tier 2 cross-checks, env_vars grep scan, hook support (SCHEMA-01..05)
+- ✓ `scripts/seed.sh` — explicit Doppler gap-fill subcommand (SCHEMA-06)
+- ✓ `provision.sh` `provision` alias; seeds from .env files when present (SCHEMA-07)
+- ✓ `SKILL.md` subcommand table complete (seed, provision, read-only validate) (SCHEMA-08)
+- ✓ `examples/coolify.json.example` with REPLACE_THIS placeholders for all Tier 1 fields (SCHEMA-09)
+- ✓ `docs/schema.md` 3-tier model section; `doppler_token` in Required Fields table (SCHEMA-10)
+- ✓ `docs/setup-guide.md` — no stale validate side-effect references (SCHEMA-11)
+- ✓ `test/validate-schema-contract.sh` — 15 offline checks pass (V1-V6) (SCHEMA-12)
+- ✓ `test/e2e.sh` compatibility confirmed — no broken invocations (SCHEMA-13)
+- ✓ E2E hello-world deployment run against vultr-stream — 19/20 steps, production HTTP 200 (SCHEMA-14)
+
 ### Out of Scope
 
 - Live GitHub Actions pipeline execution as part of test — static validation covers workflow correctness; live CI adds external dependency
@@ -65,9 +78,11 @@ A developer can clone this repo, run one command, see a working hello-world depl
 
 ## Context
 
-**Current state:** Milestone v1.1 complete (shipped 2026-06-17). Same-image promotion is now verifiably correct with a 4-layer enforcement chain: digest traceability → deployment polling → verify-promotion assertion → runtime identity. Contract test has 16 checks. E2E test validated against vultr-stream 2026-05-26 (v1.0); v1.1 changes are pure CI generator modifications (no infra changes).
+**Current state:** Phase 999.1 (schema enforcement) complete (2026-06-17). `validate` is now strictly read-only; `doppler_token` is a Tier 1 hard fail; Tier 2 cloudflare/deploy cross-checks added; `seed` and `provision` subcommands added. Schema contract test: 15/15 offline checks. Workflow contract test: 16/16. E2E hello-world deployment validated against vultr-stream.
 
-- `scripts/generate-workflow.sh` is the primary artifact — generates a complete `deploy.yml` with deployment polling, verify-promotion, runtime identity build-args, and version assertions
+- `scripts/validate.sh` — strictly read-only, 3-tier schema enforcement (Tier 1 hard fail, Tier 2 feature-gated, Tier 3 optional), env_vars grep scan, .coolify/validate.sh hook support
+- `scripts/seed.sh` — explicit Doppler gap-fill from .env files; called by provision when .env files present
+- `test/validate-schema-contract.sh` — 15 offline contract tests (V1-V6 + sub-assertions) for new validation behaviors
 - `test/validate-workflow-contract.sh` has 16 contract checks (C1-C14 + C1b/C8b) covering all invariants
 - `docs/invariants.md` documents 5 invariants (INV-01 through INV-05) with 4-layer enforcement table
 - Next milestone should address HEALTH-01 (health endpoint convention) to enable full version assertion coverage without graceful-skip fallback
@@ -115,4 +130,4 @@ A developer can clone this repo, run one command, see a working hello-world depl
 This document evolves at phase transitions and milestone boundaries.
 
 ---
-*Last updated: 2026-06-17 — Milestone v1.1 Deployment Correctness shipped*
+*Last updated: 2026-06-17 — Phase 999.1 schema enforcement complete*
