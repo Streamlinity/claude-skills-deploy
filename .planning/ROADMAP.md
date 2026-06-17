@@ -123,7 +123,7 @@ See `.planning/milestones/v1.1-ROADMAP.md` for full phase details.
 
 ### Phase 999.1: coolify.json Schema Enforcement (BACKLOG)
 
-**Goal:** Harden coolify.json validation so missing fields fail loudly rather than silently. Promote `doppler_token` to Tier 1 required. Add Tier 2 cross-checks in validate.sh (cloudflare_api_token/deploy_* validated against coolify.yaml feature flags). Add `examples/coolify.json.example`. Update docs/schema.md with explicit 3-tier model (hard required / feature-gated / truly optional).
+**Goal:** Harden coolify.json/coolify.yaml validation so missing or stale fields fail loudly rather than silently. Promote `doppler_token` to Tier 1 required. Add Tier 2 cross-checks in validate.sh (cloudflare_api_token/deploy_* checked against coolify.yaml feature flags). Add `env_vars` grep scan (flags declared vars absent from codebase + vars used in code but missing from coolify.yaml). Support opt-in `.coolify/validate.sh` hook in target repos for stack-specific dynamic env var patterns that grep misses. Add `examples/coolify.json.example` with REPLACE placeholders. Update docs/schema.md with explicit 3-tier model (hard required / feature-gated / truly optional).
 **Requirements:** TBD
 **Plans:** 0 plans
 
