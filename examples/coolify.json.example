@@ -1,0 +1,42 @@
+{
+  "_doc": "Copy this file to ~/.claude/coolify.json and fill in REPLACE_THIS values. Fields marked REPLACE_THIS are Tier 1 required — validate.sh will hard-fail if any are absent. Remove this _doc key before use.",
+
+  "servers": {
+    "my-server": {
+      "_tier1_required_note": "All five fields below are always required. validate.sh exits 1 if any are missing.",
+
+      "url": "REPLACE_THIS_https://coolify.example.com",
+      "api_key": "REPLACE_THIS_coolify_api_key",
+      "doppler_account": "REPLACE_THIS_doppler_account_slug",
+      "ssh_host": "REPLACE_THIS_ssh_alias_from_ssh_config",
+      "doppler_token": "REPLACE_THIS_doppler_service_or_personal_token",
+
+      "_tier2_note": "Tier 2 fields below are required only when specific coolify.yaml features are enabled. Remove any you do not need.",
+
+      "_cloudflare_api_token_when": "ONLY if dns.credential_source: coolify_json in coolify.yaml",
+      "cloudflare_api_token": "OPTIONAL_cf_api_token_zone_dns_edit_scope",
+
+      "_deploy_ssh_host_when": "ONLY if deploy_server is set in coolify.yaml (multi-server deployments)",
+      "deploy_ssh_host": "OPTIONAL_ssh_alias_for_app_vps",
+
+      "_deploy_vps_ip_when": "ONLY if deploy_server is set AND dns automation is enabled",
+      "deploy_vps_ip": "OPTIONAL_1_2_3_4",
+
+      "_tier3_note": "Tier 3 fields below are truly optional. Defaults shown. Remove any you do not need.",
+
+      "_server_name_default": "localhost (correct for standard Coolify single-host setup)",
+      "server_name": "localhost",
+
+      "_vps_ip_default": "resolved via SSH ifconfig.me when absent",
+      "vps_ip": "OPTIONAL_1_2_3_4",
+
+      "_dns_default_note": "Used by test/e2e.sh to inject a dns: block into E2E test runs",
+      "dns_default": {
+        "provider": "cloudflare",
+        "zone_name": "OPTIONAL_example.com",
+        "credential_source": "coolify_json",
+        "credential_key": "cloudflare_api_token"
+      }
+    }
+  }
+}
