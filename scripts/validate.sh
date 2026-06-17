@@ -229,6 +229,24 @@ fi
 # Gap-fill moved to scripts/seed.sh — run /setup-coolify seed to fill missing Doppler keys.
 YAML_DIR="$(cd "$(dirname "$YAML_PATH")" && pwd)"
 
+# ── env_vars grep scan (WARN-only, best-effort) ───────────────────────────────
+# Flags declared vars that are absent from the codebase (stale) and vars
+# found in code that are not in coolify.yaml (missing from manifest).
+# Only runs when YAML_DIR contains a .git dir — skips in E2E temp dirs.
+if [ -d "$YAML_DIR/.git" ]; then
+  for _gk in $ENV_VARS; do
+    _gk="${_gk%%#*}"; _gk="${_gk// /}"; [ -z "$_gk" ] && continue
+    if ! grep -rl "$_gk" "$YAML_DIR" \
+         --include="*.js" --include="*.ts" --include="*.jsx" --include="*.tsx" \
+         --include="*.py" --include="*.sh" --include="*.env*" \
+         --exclude-dir=".git" --exclude-dir="node_modules" \
+         --exclude-dir=".next" --exclude-dir="dist" --exclude-dir="vendor" \
+         >/dev/null 2>&1; then
+      warn "env_vars: $_gk declared in coolify.yaml but not found in codebase (stale?)"
+    fi
+  done
+fi
+
 # Verify every env_vars key exists in EVERY environment's Doppler config with
 # non-placeholder values (staging + production + any extra envs like qa/preview)
 _DOPPLER_CONFIGS=()
@@ -267,6 +285,17 @@ eval "$(python3 "$SCRIPT_DIR/lib-config.py" emit-dns-vars "$YAML_PATH")"
 if [ "${DNS_PROVIDER:-none}" = "none" ]; then
   echo "validate: dns: skipped (provider: none or block absent)"
 else
+  # Tier 2: cloudflare_api_token required when dns.credential_source: coolify_json
+  if [ "${cred_source:-}" = "coolify_json" ]; then
+    _cf=$(python3 "$SCRIPT_DIR/lib-config.py" get-json-field \
+      "$HOME/.claude/coolify.json" "$SERVER" "${cred_key:-cloudflare_api_token}")
+    if [ -z "$_cf" ]; then
+      fail "INVALID:coolify.json:servers.$SERVER.${cred_key:-cloudflare_api_token} (required when dns.credential_source: coolify_json in $YAML_PATH)"
+    else
+      echo "validate: Tier 2 ${cred_key:-cloudflare_api_token} present for dns.credential_source=coolify_json OK"
+    fi
+  fi
+
   if [ -z "${zone_name:-}" ]; then
     fail "INVALID:coolify.yaml:dns.zone_name (empty — required when dns.provider is not none)"
   fi
@@ -300,6 +329,15 @@ if [ "$ERRORS" -gt 0 ]; then
   echo "" >&2
   echo "Stop: $ERRORS error(s) above. Fix and re-run." >&2
   exit 1
+fi
+
+# ── .coolify/validate.sh hook (opt-in, repo-specific checks) ─────────────────
+HOOK="$YAML_DIR/.coolify/validate.sh"
+if [ -f "$HOOK" ]; then
+  echo "validate: running .coolify/validate.sh hook"
+  if ! bash "$HOOK" "$YAML_PATH" 2>&1; then
+    fail "INVALID:.coolify/validate.sh hook exited non-zero (repo-specific validation failed)"
+  fi
 fi
 
 # ── INV-01: Coolify apps must hold exactly one env var — DOPPLER_TOKEN ─────────
