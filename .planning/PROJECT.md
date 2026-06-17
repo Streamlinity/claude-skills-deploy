@@ -31,41 +31,47 @@ A developer can clone this repo, run one command, see a working hello-world depl
 - ✓ Same-image promotion CI/CD pipeline (build once → staging → production) — existing
 - ✓ Generated `.github/workflows/deploy.yml` — existing
 
-## Current Milestone: v1.1 Deployment Correctness
+## Requirements
 
-**Goal:** Make same-image promotion verifiably correct by adding image digest tracking, deployment polling, a production smoke test, and a cross-environment assertion gate to the generated deploy.yml.
+### Validated
 
-**Target features:**
-- Image digest capture and logging from build step (Layer 1)
-- ✓ Coolify deployment API polling — pull failures surface immediately (Layer 2) — Validated in Phase 05: deployment-polling
-- Enhanced smoke test with runtime version/SHA assertion (Layer 3)
-- `verify-promotion` job asserting tag match before ghcr-cleanup (Layer 4)
-- Production smoke test (currently absent)
-- INV-04 and INV-05 in docs/invariants.md
+- ✓ Fix `generate-workflow.sh`: `needs: [deploy-staging, build]` + smoke URL `/api/health` — v1.0 Phase 01
+- ✓ Fix `provision.sh`: Doppler `returncode` check, hard-fail with per-key error — v1.0 Phase 01
+- ✓ Fix `provision.sh`: `server_name` read from `coolify.json` (default `localhost`) — v1.0 Phase 01
+- ✓ `test/e2e.sh` fails fast with actionable error when `E2E_SERVER`/`E2E_BASE_DOMAIN` unset — v1.0 Phase 02.1
+- ✓ `SKILL.md` accurately describes provision flow — v1.0 Phase 02.1
+- ✓ `README.md` opens with 5-command Quick start above Prerequisites — v1.0 Phase 02.1
+- ✓ `references/api-reference.md` uses placeholders — v1.0 Phase 02.1
+- ✓ `test/cleanup-deployment.sh` report-driven teardown — v1.0 Phase 03
+- ✓ Multi-server deployment via `deploy_server:` in coolify.yaml — v1.0 Phase 04
+- ✓ Deployment polling (36×10s) — pull failures surface within 10s (POLL-01, POLL-02) — v1.1 Phase 05
+- ✓ Image digest captured from build and logged in every deploy step (DIAG-01, DIAG-02) — v1.1 Phase 06
+- ✓ `verify-promotion` job asserts same image tag on staging and production; gates ghcr-cleanup (PROMOTE-01, PROMOTE-02) — v1.1 Phase 06+08
+- ✓ GIT_SHA/BUILD_TIMESTAMP build-args; OCI revision/created labels; version assertion with graceful skip (LAYER3-01, LAYER3-02, SMOKE-01, SMOKE-02, SMOKE-03) — v1.1 Phase 07
+- ✓ `docs/invariants.md` documents INV-04 (tag=SHA) and INV-05 (production smoke prerequisite) — v1.1 Phase 06+08
+- ✓ Contract test expanded to 16 checks (C11-C14 added: polling loop, version assert steps, verify-promotion needs) — v1.1 audit debt
 
 ### Active
 
-- DIAG-01, DIAG-02: Image digest capture + logging (Phase 06)
-- PROMOTE-01, PROMOTE-02: verify-promotion job + ghcr-cleanup gate (Phase 06)
-- INV-04, INV-05: invariants documentation (Phase 06)
-- SMOKE-01, SMOKE-02, SMOKE-03: version assertion in staging + production smoke tests (Phase 07)
-- LAYER3-01, LAYER3-02: GIT_SHA/BUILD_TIMESTAMP build-args + OCI labels (Phase 07)
+- **HEALTH-01**: Apps expose `{"status":"ok","version":"sha-XXXXXXX","built_at":"..."}` for full version assertion coverage — next milestone
 
 ### Out of Scope
 
-- Live GitHub Actions pipeline execution as part of test — static validation covers workflow correctness; live CI adds external dependency and slow feedback
-- Production deployment validation — staging smoke test is sufficient for trust signal
-- Multi-node Coolify support — target architecture is single-node; `server_name` default of `localhost` covers the common case
-- Per-env build mode (`build_time: true`) — field is reserved for future use; current same-image promotion model is the target behavior
+- Live GitHub Actions pipeline execution as part of test — static validation covers workflow correctness; live CI adds external dependency
+- Per-env build mode (`build_time: true`) — reserved for future use; same-image promotion is the target model
+- Multi-node Coolify support — single-node with `server_name`/`deploy_server` covers the target use case
+- VPS-level docker inspect verification — Coolify API + health response covers same ground more portably
+- Per-commit digest pinning in Coolify (by digest rather than tag) — short SHA tags are sufficiently unique; digest pinning requires non-standard Coolify API support
 
 ## Context
 
-- The core skill was developed and validated through the deployment of `git@github.com:anatesan-stream/ai-upskilling.git` — that work proved out the Coolify + Doppler approach
-- Work is continuing in this repo after a `/clear` interrupted a previous session in a different working directory; `test/e2e.sh` exists but has not been run against real infrastructure
-- The codebase audit (`CONCERNS.md`) identified 3 HIGH bugs that would cause the E2E test to fail — fixing them is the first phase of work
+**Current state:** Milestone v1.1 complete (shipped 2026-06-17). Same-image promotion is now verifiably correct with a 4-layer enforcement chain: digest traceability → deployment polling → verify-promotion assertion → runtime identity. Contract test has 16 checks. E2E test validated against vultr-stream 2026-05-26 (v1.0); v1.1 changes are pure CI generator modifications (no infra changes).
+
+- `scripts/generate-workflow.sh` is the primary artifact — generates a complete `deploy.yml` with deployment polling, verify-promotion, runtime identity build-args, and version assertions
+- `test/validate-workflow-contract.sh` has 16 contract checks (C1-C14 + C1b/C8b) covering all invariants
+- `docs/invariants.md` documents 5 invariants (INV-01 through INV-05) with 4-layer enforcement table
+- Next milestone should address HEALTH-01 (health endpoint convention) to enable full version assertion coverage without graceful-skip fallback
 - Test audience: new users onboarding to the skill, maintainers running CI on this repo, developers forking for a new domain (e.g., strategem.ai)
-- The hello-world test container (`test/hello-world/`) is a minimal nginx image serving `/api/health` → 200 and `index.html` with a known sentinel string
-- The test should leave the hello-world deployment running so a new user can browse to the staging URL and see proof of a working deployment before running cleanup
 
 ## Constraints
 
@@ -87,24 +93,26 @@ A developer can clone this repo, run one command, see a working hello-world depl
 | `GHCR_TOKEN` stored in Doppler `claude-skills-deploy/stg` | Operator credential for pushing test image; Doppler ensures any team member can run E2E tests without out-of-band secret sharing; teardown never touches this project | Validated — Phase 02 setup |
 | `workflow_dispatch` CI job (`push-test-image.yml`) for test image | Zero-PAT path for forkers — uses `GITHUB_TOKEN` with `packages: write`; no separate credential needed | Validated — Phase 02 setup |
 
-## Evolution
+## Key Decisions
 
-**Current state:** Milestone v1.0 complete. All requirements validated. Live E2E + cleanup verified 2026-05-26 against vultr-stream. Post-verification: 3 bugs fixed in cleanup-deployment.sh; docs expanded (DNS setup, test-environment.md, architecture diagrams).
+| Decision | Rationale | Outcome |
+|----------|-----------|---------|
+| Static workflow validation instead of live GitHub Actions run | Avoids external dependency, catches structural bugs fast | ✓ Validated — Phase 02 |
+| No auto-cleanup in E2E test on success | New users need to see the deployed result | ✓ Validated — Phase 02 |
+| `test/cleanup-deployment.sh` reads from JSON report file | Decouples teardown from e2e.sh | ✓ Validated — Phase 03 |
+| Fix HIGH bugs before building test framework | E2E test would fail for the wrong reasons otherwise | ✓ Validated — Phase 01 |
+| `E2E_BASE_DOMAIN` + `E2E_SERVER` env vars for portability | Domain fork developers run same test against their Coolify | ✓ Validated — Phase 02 |
+| Test report written to `test/results/` | Persists state between run and cleanup | ✓ Validated — Phase 02 |
+| `GHCR_TOKEN` stored in Doppler `claude-skills-deploy/stg` | Operator credential via Doppler for team sharing | ✓ Validated — Phase 02 |
+| 36-retry polling (10s interval, 6 min max) | Matches existing smoke test window; failures surface in one cycle | ✓ Validated — Phase 05 |
+| `timed_out=1` flag pattern for timeout detection | Compatible with `set -euo pipefail` in generated workflow | ✓ Validated — Phase 05 |
+| GIT_SHA/BUILD_TIMESTAMP identity-only build-args exempted from C9 | These are identical across staging/production — do not break same-image promotion | ✓ Validated — Phase 07+08 |
+| Graceful-skip version assertion (`exit 0` when `version` field absent) | Allows incremental adoption without blocking CI for apps that haven't adopted HEALTH-01 | ✓ Validated — Phase 07 |
+| verify-promotion.needs must include `build` | GitHub Actions only populates `needs.<job>.outputs.*` for jobs in the current job's needs array | ✓ Validated — Phase 08 (fixed GAP-1) |
+
+## Evolution
 
 This document evolves at phase transitions and milestone boundaries.
 
-**After each phase transition** (via `/gsd:transition`):
-1. Requirements invalidated? → Move to Out of Scope with reason
-2. Requirements validated? → Move to Validated with phase reference
-3. New requirements emerged? → Add to Active
-4. Decisions to log? → Add to Key Decisions
-5. "What This Is" still accurate? → Update if drifted
-
-**After each milestone** (via `/gsd:complete-milestone`):
-1. Full review of all sections
-2. Core Value check — still the right priority?
-3. Audit Out of Scope — reasons still valid?
-4. Update Context with current state
-
 ---
-*Last updated: 2026-06-13 — Milestone v1.1: Deployment Correctness started*
+*Last updated: 2026-06-17 — Milestone v1.1 Deployment Correctness shipped*

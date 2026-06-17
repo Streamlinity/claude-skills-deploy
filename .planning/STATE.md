@@ -2,32 +2,31 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Deployment Correctness
-status: executing
-stopped_at: Completed 08-workflow-defect-fixes/08-03-PLAN.md
-last_updated: "2026-06-17T00:18:42.083Z"
+status: complete
+stopped_at: v1.1 milestone archived 2026-06-17
+last_updated: "2026-06-17T00:00:00Z"
 last_activity: 2026-06-17
 progress:
   total_phases: 4
   completed_phases: 4
   total_plans: 8
   completed_plans: 8
-  percent: 63
+  percent: 100
 ---
 
 # Project State
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-05-21)
+See: .planning/PROJECT.md (updated 2026-06-17)
 
 **Core value:** A developer can clone this repo, run one command, see a working hello-world deployment on their Coolify server, and trust the skill is correct before using it for a real application.
-**Current focus:** Phase 08 — workflow-defect-fixes
+**Current focus:** Planning next milestone
 
 ## Current Position
 
-Phase: 08
-Plan: Not started
-Status: Ready to execute
+Milestone v1.1 complete and archived.
+Status: Ready for next milestone (`/gsd:new-milestone`)
 Last activity: 2026-06-17
 
 **Progress:** [██████░░░░] 63%

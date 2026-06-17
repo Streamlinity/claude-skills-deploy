@@ -1,5 +1,19 @@
 # Milestones
 
+## v1.1 Deployment Correctness (Shipped: 2026-06-17)
+
+**Phases completed:** 4 phases, 8 plans, 8 tasks
+
+**Key accomplishments:**
+
+- Coolify deployment API polling added to both deploy-staging and deploy-production jobs — pull failures surface within 10s instead of timing out on health endpoint after 6 minutes
+- INV-04 (deployed image tag = build SHA via verify-promotion) and INV-05 (production smoke test prerequisite) added to docs/invariants.md with updated enforcement table
+- Identity build-args (GIT_SHA, BUILD_TIMESTAMP) added to build job; version assertion steps with graceful skip added to staging and production; production smoke test added
+- OCI identity ARG and LABEL stanzas prepended to Dockerfile.doppler.snippet so new repos bootstrapped via init.sh automatically carry org.opencontainers.image.revision and org.opencontainers.image.created labels in CI builds
+- One-liner:
+
+---
+
 ## v1.0 v1.0 (Shipped: 2026-06-08)
 
 **Phases completed:** 5 phases, 14 plans, 18 tasks
