@@ -24,6 +24,10 @@
 #   C8  no REPLACE_WITH_* placeholders survive when UUIDs are provisioned
 #   C9  no build-args (env-specific build-args break same-image promotion)
 #   C10 structural validity (delegates to validate-workflow.sh)
+#   C11 deployment polling loop present in both deploy jobs (POLL-01/POLL-02)
+#   C12 Assert staging version step present with graceful skip (SMOKE-01)
+#   C13 Assert production version step present (SMOKE-03)
+#   C14 verify-promotion.needs includes build — TAG resolves at runtime (PROMOTE-01)
 #
 # Exit 0: all contract checks pass. Exit 1: at least one failed (all printed).
 
@@ -184,6 +188,44 @@ if bash "$SCRIPT_DIR/validate-workflow.sh" "$WF" >/dev/null 2>&1; then
   pass "C10: validate-workflow.sh structural checks pass"
 else
   fail "C10: validate-workflow.sh failed on generated output"
+fi
+
+# C11 — deployment polling loop present in both deploy jobs (POLL-01/POLL-02)
+POLL_LOOPS=$(grep -c 'seq 1 36' "$WF" || true)
+if [ "$POLL_LOOPS" -ge 2 ]; then
+  pass "C11: deployment polling loop (seq 1 36) present in both deploy jobs ($POLL_LOOPS refs)"
+else
+  fail "C11: deployment polling loop missing or present in < 2 jobs (found $POLL_LOOPS)"
+fi
+
+# C12 — Assert staging version step present with graceful skip (SMOKE-01)
+if grep -q 'Assert staging version' "$WF"; then
+  pass "C12: Assert staging version step present in deploy-staging"
+else
+  fail "C12: Assert staging version step missing from deploy-staging"
+fi
+
+# C13 — Assert production version step present (SMOKE-03)
+if grep -q 'Assert production version' "$WF"; then
+  pass "C13: Assert production version step present in deploy-production"
+else
+  fail "C13: Assert production version step missing from deploy-production"
+fi
+
+# C14 — verify-promotion.needs includes build (PROMOTE-01 regression guard)
+# Without build in needs, needs.build.outputs.tag resolves to empty string
+# and the promotion assertion silently fails on every real workflow run.
+if python3 - "$WF" <<'PY'
+import sys, yaml
+jobs = yaml.safe_load(open(sys.argv[1]))["jobs"]
+needs = jobs.get("verify-promotion", {}).get("needs", [])
+needs = [needs] if isinstance(needs, str) else needs
+sys.exit(0 if "build" in needs else 1)
+PY
+then
+  pass "C14: verify-promotion.needs includes build — TAG resolves from needs.build.outputs.tag"
+else
+  fail "C14: verify-promotion.needs missing build — TAG will be empty string at runtime"
 fi
 
 # ── Summary ────────────────────────────────────────────────────────────────────
