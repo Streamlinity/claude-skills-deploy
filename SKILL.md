@@ -1,8 +1,8 @@
 ---
 name: setup-coolify
-description: This skill should be used when the user runs /setup-coolify, /setup-coolify plan, /setup-coolify init_cicd, /setup-coolify init_app, or /setup-coolify validate. Provisions and updates a Coolify deployment for the current repo from coolify.yaml, configures Doppler secret injection (all env_vars including NEXT_PUBLIC_* injected at runtime via DOPPLER_TOKEN — same-image promotion model), and generates .github/workflows/deploy.yml. Reads coolify.yaml from the working directory and credentials from ~/.claude/coolify.json. Designed to work across multiple repos and multiple Coolify servers via the server alias in coolify.yaml.
+description: This skill should be used when the user runs /setup-coolify, /setup-coolify provision, /setup-coolify plan, /setup-coolify seed, /setup-coolify init_cicd, /setup-coolify init_app, or /setup-coolify validate. Provisions and updates a Coolify deployment for the current repo from coolify.yaml, configures Doppler secret injection (all env_vars including NEXT_PUBLIC_* injected at runtime via DOPPLER_TOKEN — same-image promotion model), and generates .github/workflows/deploy.yml. Reads coolify.yaml from the working directory and credentials from ~/.claude/coolify.json. Designed to work across multiple repos and multiple Coolify servers via the server alias in coolify.yaml.
 disable-model-invocation: true
-argument-hint: "[plan | init_cicd | init_app | validate | (blank = provision)]"
+argument-hint: "[provision | plan | seed | init_cicd | init_app | validate | (blank = provision)]"
 allowed-tools: Read Write Bash
 ---
 
@@ -19,10 +19,12 @@ alias in `coolify.yaml` selects both the Coolify URL and the Doppler account.
 | Form | Action |
 |------|--------|
 | `/setup-coolify` | Provision/update: ensures Doppler keys exist, upserts every app in the `environments:` map (staging + production required; extra envs like `qa` provisioned identically), syncs env vars, mounts Doppler-fallback volume. Does NOT deploy — the first deploy fires on push to `main` via the generated workflow. Idempotent. |
+| `/setup-coolify provision` | Explicit alias for blank — same as `/setup-coolify` with no arguments. Provision/update all apps idempotently. |
 | `/setup-coolify plan` | Read-only diff (Terraform-style): runs `provision.sh --plan`, reporting `+ CREATE` / `= EXISTS` / `~ PATCH` per resource (project, apps, volumes, Doppler tokens, DNS records) against live state, then exits. Nothing is mutated. Use before re-running provision on a production server. |
-| `/setup-coolify init_cicd` | Interactive setup of `~/.claude/coolify.json` for a new server alias. Prompts for url, api_key, doppler_account, ssh_host. Validates existing credentials before prompting for replacement. |
+| `/setup-coolify seed` | Explicit Doppler gap-fill from `.env.local` (seeds `dev` + `stg`) and `.env.production` (seeds `prd`). Runs `bash $HOME/.claude/skills/setup-coolify/scripts/seed.sh`. Logs every key set. Never overwrites an existing Doppler value. Run after creating a new repo's Doppler project before running provision. |
+| `/setup-coolify init_cicd` | Interactive setup of `~/.claude/coolify.json` for a new server alias. Prompts for url, api_key, doppler_account, ssh_host, doppler_token. Validates existing credentials before prompting for replacement. |
 | `/setup-coolify init_app` | Bootstraps `coolify.yaml` and `.github/workflows/deploy.yml` in the current repo. Prompts for project name, server alias, domains, env vars, and optional deploy_server/deploy_ssh_host. Seeds dev+stg Doppler configs from `.env.local` when present. |
-| `/setup-coolify validate` | Validates that all `env_vars` keys in coolify.yaml exist in Doppler staging AND production configs; verifies Coolify API reachability. If `.env.local` or `.env.production` are present in the repo root, automatically fills any **missing** Doppler keys from those files before checking — `.env.local` seeds `dev` + `stg`, `.env.production` seeds `prd`. Never overwrites an existing Doppler value. |
+| `/setup-coolify validate` | Strictly read-only validation: verifies coolify.yaml schema, coolify.json Tier 1 fields (url, api_key, doppler_account, ssh_host, doppler_token), Tier 2 feature-gated fields (cloudflare_api_token when dns.credential_source: coolify_json; deploy_ssh_host/deploy_vps_ip when deploy_server is set), Doppler key presence, Coolify API reachability. No Doppler mutations — run `/setup-coolify seed` separately to fill missing keys. |
 
 ## Secrets injection model (same-image promotion)
 
@@ -77,7 +79,7 @@ Interactive prompts (server credential collection):
 
 If the alias already exists in `~/.claude/coolify.json`, validates existing credentials first (Coolify API ping + `doppler whoami`). Prompts to replace only if validation fails.
 
-**Re-run to fill missing optional fields (gap-fill mode):** As the skill evolves, new optional fields are added to the server entry schema (`doppler_token`, `cloudflare_api_token`, `dns_default`). Older entries created before these fields existed will be missing them. Re-running `/setup-coolify init_cicd` for an existing alias is the supported upgrade path — it skips fields that already pass validation and only prompts for the fields that are absent or fail their check. `/setup-coolify validate` will print `WARN:` lines for any missing optional fields and instruct you to re-run `init_cicd` to fill them.
+**Re-run to fill missing fields:** As the skill evolves, new fields are added to the server entry schema. Re-running `/setup-coolify init_cicd` for an existing alias is the supported upgrade path — it skips fields that already pass validation and only prompts for absent or failing fields. `doppler_token` is now a Tier 1 required field (not optional); validate will exit 1 if it is missing. Re-run `init_cicd` to add it to an existing entry.
 
 Merge into `~/.claude/coolify.json` (preserve existing servers). `chmod 0600`.
 
@@ -123,16 +125,15 @@ mount, image name, health_check_path, DNS record IP). Exits 0 without mutating a
 
 Runs `bash $HOME/.claude/skills/setup-coolify/scripts/validate.sh`.
 
-1. Parses and schema-checks `coolify.yaml`.
-2. Verifies server alias, ssh_host, Coolify API reachability, deploy_server, SSH connectivity, DNS credentials.
-3. **Gap-fill from local .env files (automatic, targeted mutation):**
-   - If `.env.local` exists in the repo root → sets any keys missing from Doppler `stg` and `dev` configs using values from the file.
-   - If `.env.production` exists → sets any keys missing from Doppler `prd` config.
-   - Only fills missing/empty keys. Never overwrites an existing Doppler value.
-   - Logs every key filled with its target config.
-4. Checks that every `env_vars` key from `coolify.yaml` exists in Doppler staging AND production with a non-placeholder value. Reports all failures before exiting (error-accumulation pattern).
+Strictly read-only — no Doppler mutations.
 
-The gap-fill step means a developer can run `/setup-coolify validate` immediately after cloning a repo (with `.env.local` present) and have their Doppler configs populated automatically, without a separate manual seeding step.
+1. Parses and schema-checks `coolify.yaml`.
+2. Verifies coolify.json Tier 1 fields: `url`, `api_key`, `doppler_account`, `ssh_host`, `doppler_token` (hard fail if missing).
+3. Verifies coolify.json Tier 2 fields gated on coolify.yaml features: `cloudflare_api_token` (required when `dns.credential_source: coolify_json`), `deploy_ssh_host`/`deploy_vps_ip` (required when `deploy_server:` is set).
+4. Verifies Coolify API reachability, SSH connectivity, DNS credentials.
+5. Checks that every `env_vars` key from `coolify.yaml` exists in Doppler staging AND production with a non-placeholder value. Reports all failures before exiting (error-accumulation pattern).
+
+To fill missing Doppler keys from local `.env` files, run `/setup-coolify seed` separately.
 
 ## See also
 

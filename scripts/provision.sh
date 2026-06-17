@@ -21,6 +21,7 @@ for _arg in "$@"; do
   case "$_arg" in
     --plan)          PLAN_MODE=true ;;
     --rotate-tokens) ROTATE_TOKENS=true ;;
+    provision)       : ;;  # explicit alias for blank (default behavior unchanged)
     --*)             echo "ERROR: unknown flag '$_arg' (expected: --plan | --rotate-tokens)" >&2; exit 1 ;;
     *)               YAML_PATH="$_arg" ;;
   esac
@@ -32,6 +33,14 @@ YAML_PATH="${YAML_PATH:-./coolify.yaml}"
 if ! bash "$SCRIPT_DIR/validate.sh" "$YAML_PATH"; then
   echo "ERROR: validate.sh failed; aborting before any Coolify mutation." >&2
   exit 1
+fi
+
+# Seed Doppler from .env files if present — fills gaps before Coolify mutations.
+# Explicit seed step (validate is now strictly read-only; no gap-fill side-effect).
+YAML_DIR="$(cd "$(dirname "$YAML_PATH")" && pwd)"
+if [ -f "$YAML_DIR/.env.local" ] || [ -f "$YAML_DIR/.env.production" ]; then
+  echo "provision: .env file(s) found — seeding missing Doppler keys"
+  bash "$SCRIPT_DIR/seed.sh" "$YAML_PATH"
 fi
 
 # A mid-run abort (e.g. transient API failure after retries are exhausted) can
