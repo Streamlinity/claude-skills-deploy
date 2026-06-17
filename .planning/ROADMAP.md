@@ -123,7 +123,32 @@ See `.planning/milestones/v1.1-ROADMAP.md` for full phase details.
 
 ### Phase 999.1: coolify.json Schema Enforcement (BACKLOG)
 
-**Goal:** Harden coolify.json/coolify.yaml validation so missing or stale fields fail loudly rather than silently. Promote `doppler_token` to Tier 1 required. Add Tier 2 cross-checks in validate.sh (cloudflare_api_token/deploy_* checked against coolify.yaml feature flags). Add `env_vars` grep scan (flags declared vars absent from codebase + vars used in code but missing from coolify.yaml). Support opt-in `.coolify/validate.sh` hook in target repos for stack-specific dynamic env var patterns that grep misses. Add `examples/coolify.json.example` with REPLACE placeholders. Update docs/schema.md with explicit 3-tier model (hard required / feature-gated / truly optional).
+**Goal:** Harden schema enforcement, clean up the subcommand surface, and bring docs + tests into sync.
+
+**Scope:**
+
+*Schema enforcement (validate.sh):*
+- Promote `doppler_token` to Tier 1 required (hard fail)
+- Add Tier 2 cross-checks: `cloudflare_api_token` required when `dns.credential_source: coolify_json`; `deploy_ssh_host` / `deploy_vps_ip` required when `deploy_server:` set in coolify.yaml
+- Add `env_vars` grep scan: flag declared vars absent from codebase + vars found in code missing from coolify.yaml
+- Support opt-in `.coolify/validate.sh` hook in target repo for stack-specific dynamic patterns grep misses
+- Make `validate` strictly read-only — strip Doppler gap-fill side-effect out entirely
+
+*New subcommands:*
+- `seed` — explicit Doppler gap-fill from `.env.local` / `.env.production`; logs every key set
+- `provision` — explicit subcommand alias for blank (current default behavior unchanged); makes subcommand table complete
+
+*Examples + docs:*
+- Add `examples/coolify.json.example` with `REPLACE_THIS` placeholders for Tier 1 fields, annotated optional sections
+- Update `docs/schema.md` with explicit 3-tier model (hard required / feature-gated / truly optional)
+- Update `SKILL.md` subcommand table with `seed`, `provision`, updated `validate` (read-only), updated `plan` descriptions
+- Update `docs/setup-guide.md` and any other docs referencing `validate` side-effects or subcommand names
+
+*Tests:*
+- Update `test/e2e.sh` for any validate/seed/provision invocation changes
+- Add contract checks or unit tests for new Tier 2 cross-checks and grep scan behavior
+- Verify `.coolify/validate.sh` hook is called when present (fixture test)
+
 **Requirements:** TBD
 **Plans:** 0 plans
 
