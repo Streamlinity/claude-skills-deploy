@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.1
-milestone_name: Deployment Correctness
-status: complete
-stopped_at: v1.1 milestone archived 2026-06-17
-last_updated: "2026-06-17T00:00:00Z"
+milestone: v1.0
+milestone_name: milestone
+status: executing
+stopped_at: Completed 999.1-coolify-json-schema-enforcement/999.1-03-PLAN.md
+last_updated: "2026-06-17T04:45:10.574Z"
 last_activity: 2026-06-17
 progress:
-  total_phases: 4
-  completed_phases: 4
-  total_plans: 8
-  completed_plans: 8
-  percent: 100
+  total_phases: 1
+  completed_phases: 0
+  total_plans: 4
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -21,15 +21,17 @@ progress:
 See: .planning/PROJECT.md (updated 2026-06-17)
 
 **Core value:** A developer can clone this repo, run one command, see a working hello-world deployment on their Coolify server, and trust the skill is correct before using it for a real application.
-**Current focus:** Planning next milestone
+**Current focus:** Phase 999.1 — coolify-json-schema-enforcement
 
 ## Current Position
 
+Phase: 999.1 (coolify-json-schema-enforcement) — EXECUTING
+Plan: 2 of 4
 Milestone v1.1 complete and archived.
-Status: Ready for next milestone (`/gsd:new-milestone`)
+Status: Ready to execute
 Last activity: 2026-06-17
 
-**Progress:** [██████░░░░] 63%
+**Progress:** [░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
@@ -65,6 +67,7 @@ Last activity: 2026-06-17
 | Phase 07-runtime-identity P01 | 4 | 2 tasks | 1 files |
 | Phase 07-runtime-identity P02 | 4 | 1 tasks | 1 files |
 | Phase 08-workflow-defect-fixes P03 | 2 | 1 tasks | 1 files |
+| Phase 999.1-coolify-json-schema-enforcement P03 | 4 | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -103,6 +106,8 @@ Recent decisions affecting current work:
 - [Phase 07-runtime-identity]: Version assert uses graceful-skip pattern (exit 0) when health response lacks version field — allows incremental adoption without blocking CI
 - [Phase 07-runtime-identity]: LAYER3-02: Pure prepend of ARG + LABEL stanzas to Dockerfile.doppler.snippet; ARG defaults 'unknown' for safe local builds without --build-arg
 - [Phase 08-workflow-defect-fixes]: Replace stale (planned:) marker in INV-05 with concrete references to Smoke test production and Assert production version steps in deploy-production job
+- [Phase 999.1-coolify-json-schema-enforcement]: doppler_token promoted to Tier 1 required in coolify.json schema — prevents silent cross-workspace targeting
+- [Phase 999.1-coolify-json-schema-enforcement]: examples/coolify.json.example uses _key annotation pattern for inline JSON documentation
 
 ### Roadmap Evolution
 
@@ -119,8 +124,8 @@ None currently.
 
 ## Session Continuity
 
-Last session: 2026-06-17T00:00:10.103Z
-Stopped at: Completed 08-workflow-defect-fixes/08-03-PLAN.md
+Last session: 2026-06-17T04:45:10.572Z
+Stopped at: Completed 999.1-coolify-json-schema-enforcement/999.1-03-PLAN.md
 Resume file: None
 
 ### Next Session TODO

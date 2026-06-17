@@ -150,7 +150,7 @@ See `.planning/milestones/v1.1-ROADMAP.md` for full phase details.
 - Verify `.coolify/validate.sh` hook is called when present (fixture test)
 
 **Requirements:** SCHEMA-01 through SCHEMA-14
-**Plans:** 4 plans
+**Plans:** 0/4 plans executed
 
 Plans:
 - [ ] 999.1-01-PLAN.md — validate.sh surgery: remove gap-fill, promote doppler_token to Tier 1, add Tier 2 cross-checks, env_vars grep scan, .coolify/validate.sh hook (SCHEMA-01..05)
