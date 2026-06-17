@@ -167,4 +167,4 @@
 | 5. Deployment Polling | v1.1 | 1/1 | Complete | 2026-06-13 |
 | 6. Promotion Integrity + Diagnostics | v1.1 | 2/2 | Complete | 2026-06-13 |
 | 7. Runtime Identity | v1.1 | 2/2 | Complete | 2026-06-16 |
-| 8. Workflow Defect Fixes | v1.1 | 0/3 | Pending | — |
+| 8. Workflow Defect Fixes | v1.1 | 0/3 | Planned    |  |

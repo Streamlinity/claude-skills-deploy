@@ -25,17 +25,17 @@ Requirements for milestone v1.1: Deployment Correctness. Each maps to roadmap ph
 
 ### PROMOTE — Promotion Integrity
 
-- [ ] **PROMOTE-01**: A `verify-promotion` CI job runs after both deploys complete and asserts that Coolify's application record confirms the same image tag on both staging and production apps
+- [x] **PROMOTE-01**: A `verify-promotion` CI job runs after both deploys complete and asserts that Coolify's application record confirms the same image tag on both staging and production apps
 - [x] **PROMOTE-02**: The `ghcr-cleanup` job depends on `verify-promotion`; cleanup does not run if the promotion assertion fails, preserving all tags in GHCR for debugging
 
 ### LAYER3 — Runtime Identity (app-side scaffolding)
 
-- [ ] **LAYER3-01**: `generate-workflow.sh` passes `GIT_SHA` and `BUILD_TIMESTAMP` as build-args so images carry OCI `revision` and `created` labels
+- [x] **LAYER3-01**: `generate-workflow.sh` passes `GIT_SHA` and `BUILD_TIMESTAMP` as build-args so images carry OCI `revision` and `created` labels
 - [x] **LAYER3-02**: The `init.sh` Dockerfile template includes `ARG GIT_SHA`, `ARG BUILD_TIMESTAMP`, and corresponding `LABEL org.opencontainers.image.*` stanzas
 
 ### INV — Invariants Documentation
 
-- [ ] **INV-04**: `docs/invariants.md` documents INV-04: deployed image tag on each Coolify app must equal the build SHA (verified by `verify-promotion` job)
+- [x] **INV-04**: `docs/invariants.md` documents INV-04: deployed image tag on each Coolify app must equal the build SHA (verified by `verify-promotion` job)
 - [x] **INV-05**: `docs/invariants.md` documents INV-05: production smoke test must pass before the workflow completes
 
 ## v1.0 Requirements (Completed)
@@ -78,19 +78,19 @@ Requirements for milestone v1.1: Deployment Correctness. Each maps to roadmap ph
 | SMOKE-01 | Phase 07 | Complete |
 | SMOKE-02 | Phase 07 | Complete |
 | SMOKE-03 | Phase 07 | Complete |
-| PROMOTE-01 | Phase 08 | Pending |
+| PROMOTE-01 | Phase 08 | Complete |
 | PROMOTE-02 | Phase 06 | Complete |
-| LAYER3-01 | Phase 08 | Pending |
+| LAYER3-01 | Phase 08 | Complete |
 | LAYER3-02 | Phase 07 | Complete |
-| INV-04 | Phase 08 | Pending |
+| INV-04 | Phase 08 | Complete |
 | INV-05 | Phase 06 | Complete |
 
 **Coverage:**
 - v1.1 requirements: 13 total
 - Mapped to phases: 13
 - Unmapped: 0 ✓
-- Pending (gap closure): PROMOTE-01, INV-04, LAYER3-01 → Phase 08
+- Pending (gap closure): none — PROMOTE-01, INV-04, LAYER3-01 completed in Phase 08
 
 ---
 *Requirements defined: 2026-05-21*
-*Last updated: 2026-06-13 — milestone v1.1 traceability filled in*
+*Last updated: 2026-06-16 — Phase 08 gap closure: PROMOTE-01, INV-04, LAYER3-01 verified*

@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Deployment Correctness
-status: completed
-stopped_at: Completed 07-runtime-identity/07-02-PLAN.md
-last_updated: "2026-06-16T21:53:22.337Z"
-last_activity: 2026-06-16
+status: executing
+stopped_at: Completed 08-workflow-defect-fixes/08-03-PLAN.md
+last_updated: "2026-06-17T00:18:42.083Z"
+last_activity: 2026-06-17
 progress:
-  total_phases: 3
-  completed_phases: 3
-  total_plans: 5
-  completed_plans: 5
-  percent: 100
+  total_phases: 4
+  completed_phases: 4
+  total_plans: 8
+  completed_plans: 8
+  percent: 63
 ---
 
 # Project State
@@ -21,16 +21,16 @@ progress:
 See: .planning/PROJECT.md (updated 2026-05-21)
 
 **Core value:** A developer can clone this repo, run one command, see a working hello-world deployment on their Coolify server, and trust the skill is correct before using it for a real application.
-**Current focus:** Phase 06 — Promotion Integrity + Diagnostics
+**Current focus:** Phase 08 — workflow-defect-fixes
 
 ## Current Position
 
-Phase: 07
+Phase: 08
 Plan: Not started
-Status: Phase 07 complete — all v1.1 plans delivered
-Last activity: 2026-06-16
+Status: Ready to execute
+Last activity: 2026-06-17
 
-**Progress:** [██████████] 100% (v1.1)
+**Progress:** [██████░░░░] 63%
 
 ## Performance Metrics
 
@@ -65,6 +65,7 @@ Last activity: 2026-06-16
 | Phase 05-deployment-polling P01 | 2 | 2 tasks | 1 files |
 | Phase 07-runtime-identity P01 | 4 | 2 tasks | 1 files |
 | Phase 07-runtime-identity P02 | 4 | 1 tasks | 1 files |
+| Phase 08-workflow-defect-fixes P03 | 2 | 1 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -102,6 +103,7 @@ Recent decisions affecting current work:
 - [Phase 07-runtime-identity]: GIT_SHA and BUILD_TIMESTAMP are identity-only build-args — identical across staging and production, do not break same-image promotion
 - [Phase 07-runtime-identity]: Version assert uses graceful-skip pattern (exit 0) when health response lacks version field — allows incremental adoption without blocking CI
 - [Phase 07-runtime-identity]: LAYER3-02: Pure prepend of ARG + LABEL stanzas to Dockerfile.doppler.snippet; ARG defaults 'unknown' for safe local builds without --build-arg
+- [Phase 08-workflow-defect-fixes]: Replace stale (planned:) marker in INV-05 with concrete references to Smoke test production and Assert production version steps in deploy-production job
 
 ### Roadmap Evolution
 
@@ -118,8 +120,8 @@ None currently.
 
 ## Session Continuity
 
-Last session: 2026-06-16T21:48:05.303Z
-Stopped at: Completed 07-runtime-identity/07-02-PLAN.md
+Last session: 2026-06-17T00:00:10.103Z
+Stopped at: Completed 08-workflow-defect-fixes/08-03-PLAN.md
 Resume file: None
 
 ### Next Session TODO
