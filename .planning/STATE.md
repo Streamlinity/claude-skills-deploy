@@ -2,18 +2,15 @@
 gsd_state_version: 1.0
 milestone: v1.1
 milestone_name: Deployment Correctness
-current_phase: 05
-current_phase_name: Deployment Polling
-current_plan: ~
 status: planning
-stopped_at: ~
-last_updated: "2026-06-13T00:00:00.000Z"
-last_activity: 2026-06-13
+stopped_at: Completed 999.1-coolify-json-schema-enforcement/999.1-01-PLAN.md
+last_updated: "2026-06-17T04:43:47.328Z"
+last_activity: 2026-06-13 — Milestone v1.1 roadmap created
 progress:
   total_phases: 3
   completed_phases: 0
   total_plans: 0
-  completed_plans: 14
+  completed_plans: 0
   percent: 0
 ---
 
@@ -33,7 +30,7 @@ Plan: —
 Status: Planning (roadmap created, no plans written yet)
 Last activity: 2026-06-13 — Milestone v1.1 roadmap created
 
-**Progress:** [__________] 0% (v1.1)
+**Progress:** [░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
@@ -65,6 +62,7 @@ Last activity: 2026-06-13 — Milestone v1.1 roadmap created
 | Phase 02.1-new-user-onboarding P02 | 2 | 2 tasks | 1 files |
 | Phase 02.1-new-user-onboarding P01 | 2 | 2 tasks | 1 files |
 | Phase 03-cleanup-script P01 | 3 | 2 tasks | 2 files |
+| Phase 999.1-coolify-json-schema-enforcement P01 | 3 | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -97,6 +95,7 @@ Recent decisions affecting current work:
 - [v1.1 Roadmap]: Phase 05 (polling) delivers highest value with zero app changes — replaces sleep-then-health-check with status=finished gate
 - [v1.1 Roadmap]: Phase 06 bundles DIAG + PROMOTE + INV — all are pure CI changes in generate-workflow.sh and docs with no app-side dependency
 - [v1.1 Roadmap]: Phase 07 (runtime identity) is separate because it requires Dockerfile + health endpoint changes per repo; graceful-skip default makes adoption incremental
+- [Phase 999.1-coolify-json-schema-enforcement]: doppler_token promoted to Tier 1 hard fail in validate.sh — prevents silent Doppler workspace mismatch
 
 ### Roadmap Evolution
 
@@ -113,8 +112,8 @@ None currently.
 
 ## Session Continuity
 
-Last session: 2026-06-13T00:00:00.000Z
-Stopped at: Roadmap created for v1.1
+Last session: 2026-06-17T04:43:47.326Z
+Stopped at: Completed 999.1-coolify-json-schema-enforcement/999.1-01-PLAN.md
 Resume file: None
 
 ### Next Session TODO
