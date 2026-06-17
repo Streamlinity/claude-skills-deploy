@@ -378,6 +378,12 @@ else
   echo "validate: INV-01 check skipped — coolify_app_ids not yet set (pre-provision state)"
 fi
 
+if [ "$ERRORS" -gt 0 ]; then
+  echo "" >&2
+  echo "Stop: $ERRORS error(s) above. Fix and re-run." >&2
+  exit 1
+fi
+
 echo "OK: All keys present in $DOPPLER_PROJECT/{$(IFS=,; echo "${_DOPPLER_CONFIGS[*]}")}"
 echo "OK: $COOLIFY_URL API reachable"
 echo "OK: ready to provision (run /setup-coolify without arguments)"
