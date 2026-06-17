@@ -6,9 +6,6 @@
 #   3. Every env_vars key exists in Doppler staging AND production (non-empty, non-placeholder)
 #   4. Coolify API reachable: GET /projects returns 200
 # On failure: prints MISSING/INVALID lines and exits 1. No Coolify mutations.
-#
-# Flag: --seed-from-env   Fill missing Doppler keys from .env.local / .env.production
-#                         (the only mode that mutates Doppler — off by default).
 
 set -euo pipefail
 
@@ -17,12 +14,11 @@ source "$SCRIPT_DIR/lib-coolify-api.sh"
 source "$SCRIPT_DIR/lib-doppler-api.sh"
 source "$SCRIPT_DIR/lib-dns-api.sh"
 
-SEED_FROM_ENV=false
 YAML_PATH=""
 for _arg in "$@"; do
   case "$_arg" in
-    --seed-from-env) SEED_FROM_ENV=true ;;
-    *)               YAML_PATH="$_arg" ;;
+    --*) echo "ERROR: unknown flag '$_arg'" >&2; exit 1 ;;
+    *)   YAML_PATH="$_arg" ;;
   esac
 done
 YAML_PATH="${YAML_PATH:-./coolify.yaml}"
@@ -67,6 +63,21 @@ if ! coolify_load_server "$SERVER"; then
 fi
 doppler_load_account "$SERVER"
 
+# Tier 1: doppler_token required — prevents Doppler CLI targeting wrong workspace
+_dt=$(python3 "$SCRIPT_DIR/lib-config.py" get-json-field \
+  "$HOME/.claude/coolify.json" "$SERVER" doppler_token)
+if [ -z "$_dt" ]; then
+  fail "INVALID:coolify.json:servers.$SERVER.doppler_token (missing — required since Phase 999.1)"
+  echo "" >&2
+  echo "  Without doppler_token the Doppler CLI uses ambient auth and may target the wrong workspace." >&2
+  echo "  Fix: re-run /setup-coolify init_cicd to add this field." >&2
+fi
+if [ "$ERRORS" -gt 0 ]; then
+  echo "" >&2
+  echo "Stop: coolify.json schema errors above. Fix and re-run." >&2
+  exit 1
+fi
+
 # Verify ssh_host is set in the coolify.json server entry (required by provision.sh)
 SSH_HOST_CHECK=$(python3 "$SCRIPT_DIR/lib-config.py" get-json-field "$HOME/.claude/coolify.json" "$SERVER" ssh_host)
 if [ -z "$SSH_HOST_CHECK" ]; then
@@ -91,8 +102,6 @@ import json, sys
 d = json.load(open(sys.argv[1]))
 s = d.get('servers', {}).get(sys.argv[2], {})
 missing = []
-if not s.get('doppler_token'):
-    missing.append('doppler_token')
 if not s.get('cloudflare_api_token'):
     missing.append('cloudflare_api_token')
 if not s.get('dns_default'):
@@ -104,11 +113,6 @@ PY
 if [ -n "$_server_field" ]; then
   for _f in $_server_field; do
     case "$_f" in
-      doppler_token)
-        warn "servers.$SERVER.doppler_token not set in ~/.claude/coolify.json" >&2
-        echo "       Without it the Doppler CLI uses ambient auth and may target the wrong workspace." >&2
-        echo "       Fix: re-run /setup-coolify init_cicd to add this field." >&2
-        ;;
       cloudflare_api_token)
         warn "servers.$SERVER.cloudflare_api_token not set in ~/.claude/coolify.json" >&2
         echo "       Required when dns.credential_source: coolify_json in coolify.yaml." >&2
@@ -222,98 +226,8 @@ if [ -n "$EFFECTIVE_SSH_HOST" ]; then
   fi
 fi
 
-# ── Gap-fill from .env files before key validation ────────────────────────────
-# If .env.local or .env.production exist in the working directory, use their
-# values to fill any keys that are missing from the corresponding Doppler configs.
-# .env.local  → dev + stg (mirrors the init_app seeding convention)
-# .env.production → prd
-# Only fills missing/empty keys — never overwrites an existing Doppler value.
-# This is a targeted mutation (fill gaps), not a full sync.
-
-_parse_env_file() {
-  # Emit KEY=VALUE pairs from a .env file (bash-style), one per line.
-  # Skips blank lines and comments. Strips surrounding single/double quotes from values.
-  local file="$1"
-  while IFS= read -r line || [ -n "$line" ]; do
-    [[ -z "$line" || "$line" == \#* ]] && continue
-    if [[ "$line" =~ ^([A-Za-z_][A-Za-z0-9_]*)=(.*)$ ]]; then
-      local k="${BASH_REMATCH[1]}"
-      local v="${BASH_REMATCH[2]}"
-      v="${v#\"}" ; v="${v%\"}"
-      v="${v#\'}" ; v="${v%\'}"
-      printf '%s\t%s\n' "$k" "$v"
-    fi
-  done < "$file"
-}
-
-_fill_missing_from_env() {
-  # Fill keys missing from a Doppler config using values from a .env file.
-  # Args: <env_file> <doppler_project> <doppler_config> [<doppler_config2> ...]
-  local env_file="$1"; shift
-  local doppler_project="$1"; shift
-  local configs=("$@")
-
-  [ -f "$env_file" ] || return 0
-
-  # Build an associative array of key→value from the env file
-  declare -A _env_vals
-  while IFS=$'\t' read -r k v; do
-    _env_vals["$k"]="$v"
-  done < <(_parse_env_file "$env_file")
-
-  [ "${#_env_vals[@]}" -eq 0 ] && return 0
-
-  local filled=0
-  for cfg in "${configs[@]}"; do
-    for k in "${!_env_vals[@]}"; do
-      # Only fill if missing or empty in Doppler
-      if ! doppler_check_key "$doppler_project" "$cfg" "$k" 2>/dev/null; then
-        local v="${_env_vals[$k]}"
-        # Pass via stdin (JSON) to avoid secret appearing in doppler's argv / ps output.
-        if python3 -c "import json,sys; sys.stdout.write(json.dumps({sys.argv[1]: sys.argv[2]}))" \
-               "$k" "$v" \
-             | doppler secrets upload --project "$doppler_project" --config "$cfg" - \
-               >/dev/null 2>&1; then
-          echo "  validate: gap-filled $k → $doppler_project/$cfg (from $env_file)"
-          filled=$((filled+1))
-        else
-          echo "  validate: WARNING: could not set $k in $doppler_project/$cfg" >&2
-        fi
-      fi
-    done
-  done
-
-  [ "$filled" -gt 0 ] && echo "validate: gap-fill complete ($filled key(s) set from $env_file)"
-  return 0
-}
-
-# Gap-fill from .env files — ONLY when --seed-from-env is passed.
-# Plain `validate` is a genuine dry run; this is the only mutation path.
+# Gap-fill moved to scripts/seed.sh — run /setup-coolify seed to fill missing Doppler keys.
 YAML_DIR="$(cd "$(dirname "$YAML_PATH")" && pwd)"
-ENV_LOCAL="${YAML_DIR}/.env.local"
-ENV_PROD="${YAML_DIR}/.env.production"
-
-if [ "$SEED_FROM_ENV" = "true" ]; then
-  if [ -f "$ENV_LOCAL" ] || [ -f "$ENV_PROD" ]; then
-    echo ""
-    echo "validate: --seed-from-env — filling missing Doppler keys from .env files"
-    [ -f "$ENV_LOCAL" ] && echo "  .env.local   → $DOPPLER_PROJECT/$STAGING_DOPPLER + dev"
-    [ -f "$ENV_PROD"  ] && echo "  .env.production → $DOPPLER_PROJECT/$PROD_DOPPLER"
-    if [ -f "$ENV_LOCAL" ]; then
-      _fill_missing_from_env "$ENV_LOCAL" "$DOPPLER_PROJECT" "$STAGING_DOPPLER" "dev"
-    fi
-    if [ -f "$ENV_PROD" ]; then
-      _fill_missing_from_env "$ENV_PROD" "$DOPPLER_PROJECT" "$PROD_DOPPLER"
-    fi
-    echo ""
-  else
-    echo "validate: --seed-from-env passed but no .env.local or .env.production found — skipping"
-  fi
-else
-  if [ -f "$ENV_LOCAL" ] || [ -f "$ENV_PROD" ]; then
-    echo "validate: .env file(s) found — run with --seed-from-env to fill missing Doppler keys"
-  fi
-fi
 
 # Verify every env_vars key exists in EVERY environment's Doppler config with
 # non-placeholder values (staging + production + any extra envs like qa/preview)
@@ -342,10 +256,8 @@ done
 if [ "$ERRORS" -gt 0 ]; then
   echo "" >&2
   echo "Stop: $ERRORS Doppler key error(s) above." >&2
-  echo "  Option 1: Add missing keys to .env.local (dev/stg) or .env.production (prd)" >&2
-  echo "            and re-run /setup-coolify validate — they will be auto-filled." >&2
-  echo "  Option 2: Set manually via Doppler dashboard or:" >&2
-  echo "    doppler secrets set KEY=VALUE --project $DOPPLER_PROJECT --config $STAGING_DOPPLER" >&2
+  echo "  Option 1: Add missing keys via: doppler secrets set KEY=VALUE --project $DOPPLER_PROJECT --config $STAGING_DOPPLER" >&2
+  echo "  Option 2: Run /setup-coolify seed to gap-fill from .env.local / .env.production" >&2
   exit 1
 fi
 
