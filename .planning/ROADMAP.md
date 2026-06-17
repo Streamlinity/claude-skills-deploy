@@ -118,3 +118,14 @@ See `.planning/milestones/v1.1-ROADMAP.md` for full phase details.
 | 6. Promotion Integrity + Diagnostics | v1.1 | 2/2 | Complete | 2026-06-13 |
 | 7. Runtime Identity | v1.1 | 2/2 | Complete | 2026-06-16 |
 | 8. Workflow Defect Fixes | v1.1 | 3/3 | Complete | 2026-06-17 |
+
+## Backlog
+
+### Phase 999.1: coolify.json Schema Enforcement (BACKLOG)
+
+**Goal:** Harden coolify.json validation so missing fields fail loudly rather than silently. Promote `doppler_token` to Tier 1 required. Add Tier 2 cross-checks in validate.sh (cloudflare_api_token/deploy_* validated against coolify.yaml feature flags). Add `examples/coolify.json.example`. Update docs/schema.md with explicit 3-tier model (hard required / feature-gated / truly optional).
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd:review-backlog when ready)
