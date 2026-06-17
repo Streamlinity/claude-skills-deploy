@@ -150,10 +150,10 @@ See `.planning/milestones/v1.1-ROADMAP.md` for full phase details.
 - Verify `.coolify/validate.sh` hook is called when present (fixture test)
 
 **Requirements:** SCHEMA-01 through SCHEMA-14
-**Plans:** 0/4 plans executed
+**Plans:** 4/4 plans complete
 
 Plans:
-- [ ] 999.1-01-PLAN.md — validate.sh surgery: remove gap-fill, promote doppler_token to Tier 1, add Tier 2 cross-checks, env_vars grep scan, .coolify/validate.sh hook (SCHEMA-01..05)
-- [ ] 999.1-02-PLAN.md — New subcommands: seed.sh extraction, provision alias in provision.sh, SKILL.md subcommand table update (SCHEMA-06..08)
-- [ ] 999.1-03-PLAN.md — Examples + docs: examples/coolify.json.example, docs/schema.md 3-tier model, docs/setup-guide.md cleanup (SCHEMA-09..11)
-- [ ] 999.1-04-PLAN.md — Tests + E2E: validate-schema-contract.sh offline tests (V1-V6), e2e.sh compatibility check, E2E run (SCHEMA-12..14)
+- [x] 999.1-01-PLAN.md — validate.sh surgery: remove gap-fill, promote doppler_token to Tier 1, add Tier 2 cross-checks, env_vars grep scan, .coolify/validate.sh hook (SCHEMA-01..05)
+- [x] 999.1-02-PLAN.md — New subcommands: seed.sh extraction, provision alias in provision.sh, SKILL.md subcommand table update (SCHEMA-06..08)
+- [x] 999.1-03-PLAN.md — Examples + docs: examples/coolify.json.example, docs/schema.md 3-tier model, docs/setup-guide.md cleanup (SCHEMA-09..11)
+- [x] 999.1-04-PLAN.md — Tests + E2E: validate-schema-contract.sh offline tests (V1-V6), e2e.sh compatibility check, E2E run (SCHEMA-12..14)

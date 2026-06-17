@@ -1,17 +1,17 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.1
-milestone_name: Deployment Correctness
+milestone: v1.0
+milestone_name: milestone
 status: planning
-stopped_at: Completed 999.1-coolify-json-schema-enforcement/999.1-02-PLAN.md
-last_updated: "2026-06-17T04:50:53.146Z"
+stopped_at: Completed 999.1-coolify-json-schema-enforcement/999.1-04-PLAN.md
+last_updated: "2026-06-17T06:17:33.563Z"
 last_activity: 2026-06-13 — Milestone v1.1 roadmap created
 progress:
-  total_phases: 3
-  completed_phases: 0
-  total_plans: 0
-  completed_plans: 0
-  percent: 0
+  total_phases: 1
+  completed_phases: 1
+  total_plans: 4
+  completed_plans: 4
+  percent: 100
 ---
 
 # Project State
@@ -30,7 +30,7 @@ Plan: —
 Status: Planning (roadmap created, no plans written yet)
 Last activity: 2026-06-13 — Milestone v1.1 roadmap created
 
-**Progress:** [░░░░░░░░░░] 0%
+**Progress:** [██████████] 100%
 
 ## Performance Metrics
 
@@ -63,6 +63,7 @@ Last activity: 2026-06-13 — Milestone v1.1 roadmap created
 | Phase 02.1-new-user-onboarding P01 | 2 | 2 tasks | 1 files |
 | Phase 03-cleanup-script P01 | 3 | 2 tasks | 2 files |
 | Phase 999.1-coolify-json-schema-enforcement P02 | 237 | 2 tasks | 3 files |
+| Phase 999.1 P04 | 10min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -97,6 +98,8 @@ Recent decisions affecting current work:
 - [v1.1 Roadmap]: Phase 07 (runtime identity) is separate because it requires Dockerfile + health endpoint changes per repo; graceful-skip default makes adoption incremental
 - [Phase 999.1-coolify-json-schema-enforcement]: seed as explicit subcommand: gap-fill is an intentional data mutation, not a hidden validate side-effect
 - [Phase 999.1-coolify-json-schema-enforcement]: provision alias handled in provision.sh arg parser (no-op case), not SKILL.md routing
+- [Phase 999.1]: Stub strategy for offline validate.sh tests: override HOME + COOLIFY_REGISTRY + PATH stubs for full isolation
+- [Phase 999.1]: validate.sh hook bug fixed: final ERRORS guard moved after hook section so hook failures cause exit 1
 
 ### Roadmap Evolution
 
@@ -113,8 +116,8 @@ None currently.
 
 ## Session Continuity
 
-Last session: 2026-06-17T04:50:53.144Z
-Stopped at: Completed 999.1-coolify-json-schema-enforcement/999.1-02-PLAN.md
+Last session: 2026-06-17T06:17:27.692Z
+Stopped at: Completed 999.1-coolify-json-schema-enforcement/999.1-04-PLAN.md
 Resume file: None
 
 ### Next Session TODO
