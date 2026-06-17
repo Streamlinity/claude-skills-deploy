@@ -398,10 +398,8 @@ Edit these to match your app before running `/setup-coolify`. Getting them wrong
 
 After the bootstrapper completes, validate and provision:
 ```bash
-/setup-coolify validate    # dry-run: checks Doppler keys + Coolify API; auto-fills missing
-                           # Doppler keys from .env.local (dev/stg) or .env.production (prd)
-                           # if those files are present; prints WARN: for missing coolify.json
-                           # optional fields without blocking
+/setup-coolify validate    # dry-run: checks Doppler keys + Coolify API reachability;
+                           # prints WARN: for missing coolify.json Tier 2/3 fields without blocking
 /setup-coolify             # provisions staging + production apps (idempotent)
 ```
 
