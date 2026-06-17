@@ -1,15 +1,15 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: milestone
-status: executing
-stopped_at: Completed 999.1-coolify-json-schema-enforcement/999.1-03-PLAN.md
-last_updated: "2026-06-17T04:45:10.574Z"
-last_activity: 2026-06-17
+milestone: v1.1
+milestone_name: Deployment Correctness
+status: planning
+stopped_at: Completed 999.1-coolify-json-schema-enforcement/999.1-01-PLAN.md
+last_updated: "2026-06-17T04:43:47.328Z"
+last_activity: 2026-06-13 — Milestone v1.1 roadmap created
 progress:
-  total_phases: 1
+  total_phases: 3
   completed_phases: 0
-  total_plans: 4
+  total_plans: 0
   completed_plans: 0
   percent: 0
 ---
@@ -18,18 +18,17 @@ progress:
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-06-17)
+See: .planning/PROJECT.md (updated 2026-05-21)
 
 **Core value:** A developer can clone this repo, run one command, see a working hello-world deployment on their Coolify server, and trust the skill is correct before using it for a real application.
-**Current focus:** Phase 999.1 — coolify-json-schema-enforcement
+**Current focus:** Phase 05 — Deployment Polling
 
 ## Current Position
 
-Phase: 999.1 (coolify-json-schema-enforcement) — EXECUTING
-Plan: 2 of 4
-Milestone v1.1 complete and archived.
-Status: Ready to execute
-Last activity: 2026-06-17
+Phase: 05 — Deployment Polling
+Plan: —
+Status: Planning (roadmap created, no plans written yet)
+Last activity: 2026-06-13 — Milestone v1.1 roadmap created
 
 **Progress:** [░░░░░░░░░░] 0%
 
@@ -63,11 +62,7 @@ Last activity: 2026-06-17
 | Phase 02.1-new-user-onboarding P02 | 2 | 2 tasks | 1 files |
 | Phase 02.1-new-user-onboarding P01 | 2 | 2 tasks | 1 files |
 | Phase 03-cleanup-script P01 | 3 | 2 tasks | 2 files |
-| Phase 05-deployment-polling P01 | 2 | 2 tasks | 1 files |
-| Phase 07-runtime-identity P01 | 4 | 2 tasks | 1 files |
-| Phase 07-runtime-identity P02 | 4 | 1 tasks | 1 files |
-| Phase 08-workflow-defect-fixes P03 | 2 | 1 tasks | 1 files |
-| Phase 999.1-coolify-json-schema-enforcement P03 | 4 | 2 tasks | 3 files |
+| Phase 999.1-coolify-json-schema-enforcement P01 | 3 | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -100,14 +95,7 @@ Recent decisions affecting current work:
 - [v1.1 Roadmap]: Phase 05 (polling) delivers highest value with zero app changes — replaces sleep-then-health-check with status=finished gate
 - [v1.1 Roadmap]: Phase 06 bundles DIAG + PROMOTE + INV — all are pure CI changes in generate-workflow.sh and docs with no app-side dependency
 - [v1.1 Roadmap]: Phase 07 (runtime identity) is separate because it requires Dockerfile + health endpoint changes per repo; graceful-skip default makes adoption incremental
-- [Phase 05-deployment-polling]: 36 retries x 10s = 6 min max poll window matches existing smoke test duration; pull failures surface within one cycle
-- [Phase 05-deployment-polling]: timed_out=1 flag pattern (not subshell) for timeout detection — compatible with set -euo pipefail in generated workflow
-- [Phase 07-runtime-identity]: GIT_SHA and BUILD_TIMESTAMP are identity-only build-args — identical across staging and production, do not break same-image promotion
-- [Phase 07-runtime-identity]: Version assert uses graceful-skip pattern (exit 0) when health response lacks version field — allows incremental adoption without blocking CI
-- [Phase 07-runtime-identity]: LAYER3-02: Pure prepend of ARG + LABEL stanzas to Dockerfile.doppler.snippet; ARG defaults 'unknown' for safe local builds without --build-arg
-- [Phase 08-workflow-defect-fixes]: Replace stale (planned:) marker in INV-05 with concrete references to Smoke test production and Assert production version steps in deploy-production job
-- [Phase 999.1-coolify-json-schema-enforcement]: doppler_token promoted to Tier 1 required in coolify.json schema — prevents silent cross-workspace targeting
-- [Phase 999.1-coolify-json-schema-enforcement]: examples/coolify.json.example uses _key annotation pattern for inline JSON documentation
+- [Phase 999.1-coolify-json-schema-enforcement]: doppler_token promoted to Tier 1 hard fail in validate.sh — prevents silent Doppler workspace mismatch
 
 ### Roadmap Evolution
 
@@ -124,10 +112,10 @@ None currently.
 
 ## Session Continuity
 
-Last session: 2026-06-17T04:45:10.572Z
-Stopped at: Completed 999.1-coolify-json-schema-enforcement/999.1-03-PLAN.md
+Last session: 2026-06-17T04:43:47.326Z
+Stopped at: Completed 999.1-coolify-json-schema-enforcement/999.1-01-PLAN.md
 Resume file: None
 
 ### Next Session TODO
 
-Phase 07 complete. All v1.1 milestone plans (05, 06, 07) delivered. Run `/gsd:complete-milestone` to close v1.1.
+Run `/gsd:plan-phase 05` to plan Phase 05: Deployment Polling.
