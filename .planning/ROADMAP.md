@@ -3,7 +3,7 @@
 ## Milestones
 
 - [x] **v1.0 MVP** - Phases 01-04 (shipped 2026-06-08)
-- [ ] **v1.1 Deployment Correctness** - Phases 05-07 (in progress)
+- [ ] **v1.1 Deployment Correctness** - Phases 05-08 (complete — pending archive)
 
 ## Phases
 
@@ -152,7 +152,12 @@
   1. `generate-workflow.sh` emits a `verify-promotion` job with `needs: [deploy-staging, deploy-production, build]`; `TAG` resolves to the correct SHA at runtime and the promotion assertion passes on a real workflow run
   2. `test/validate-workflow-contract.sh` passes (exit 0) on a workflow generated after Phase 07 that includes `build-args: | GIT_SHA=... BUILD_TIMESTAMP=...`; C9 still rejects any env-specific build-arg (e.g. `NEXT_PUBLIC_BASE_URL`)
   3. `docs/invariants.md` INV-05 "Enforced by" bullet references the actual implemented steps (`Smoke test production`, `Assert production version`) rather than `(planned: ...)`
-**Plans**: 0 plans
+**Plans**: 3 plans
+- [x] 08-01-PLAN.md — Fix GAP-1: add `build` to verify-promotion needs array so TAG resolves from needs.build.outputs.tag (PROMOTE-01, INV-04)
+- [x] 08-02-PLAN.md — Fix GAP-2: narrow C9 contract check to allow identity-only build-args GIT_SHA/BUILD_TIMESTAMP (LAYER3-01)
+- [x] 08-03-PLAN.md — Fix DEBT-2: update INV-05 Enforced-by to reference Smoke test production + Assert production version steps
+
+**Status**: COMPLETE — 2026-06-17
 **UI hint**: no
 
 ## Progress
@@ -167,4 +172,4 @@
 | 5. Deployment Polling | v1.1 | 1/1 | Complete | 2026-06-13 |
 | 6. Promotion Integrity + Diagnostics | v1.1 | 2/2 | Complete | 2026-06-13 |
 | 7. Runtime Identity | v1.1 | 2/2 | Complete | 2026-06-16 |
-| 8. Workflow Defect Fixes | v1.1 | 0/3 | Planned    |  |
+| 8. Workflow Defect Fixes | v1.1 | 3/3 | Complete | 2026-06-17 |
