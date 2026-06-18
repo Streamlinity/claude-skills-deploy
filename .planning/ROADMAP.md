@@ -157,3 +157,35 @@ Plans:
 - [x] 999.1-02-PLAN.md — New subcommands: seed.sh extraction, provision alias in provision.sh, SKILL.md subcommand table update (SCHEMA-06..08)
 - [x] 999.1-03-PLAN.md — Examples + docs: examples/coolify.json.example, docs/schema.md 3-tier model, docs/setup-guide.md cleanup (SCHEMA-09..11)
 - [x] 999.1-04-PLAN.md — Tests + E2E: validate-schema-contract.sh offline tests (V1-V6), e2e.sh compatibility check, E2E run (SCHEMA-12..14)
+
+---
+
+### Phase 999.2: Provision Run History Log (BACKLOG)
+
+**Goal:** After each `/setup-coolify` run, append a structured entry to `.coolify/provision-history.json` in the target repo so operators can see when the skill last ran, what it did, and what (if anything) needs follow-up.
+
+**Scope:**
+
+*Run record (appended to `.coolify/provision-history.json` in the target repo):*
+- Timestamp (ISO 8601), server alias, skill version/git SHA
+- Per-resource outcome: `CREATE` / `EXISTS` / `PATCH` for project, staging app, production app, Docker volumes, Doppler tokens, DNS records
+- Overall result: `pass` or `fail` with exit code
+- Issues hit during the run (errors caught before abort, warnings emitted) with resolution notes where available
+- Cleanup suggestions: stale `env_vars` keys detected by grep scan, placeholder values still present (`TODO_REPLACE_BEFORE_DEPLOY`), Doppler configs with missing keys
+
+*File conventions:*
+- Written to `<target-repo>/.coolify/provision-history.json` alongside `coolify.yaml` — not in the skill repo
+- Cumulative: each run appends a new top-level array entry; existing entries are never modified
+- `.coolify/` should be `.gitignore`d in the target repo (contains run state, not config); `init.sh` adds the entry if not already present
+- File capped at last N entries (configurable, default 20) to prevent unbounded growth
+
+*Integration points:*
+- `provision.sh` writes the record on exit (both success and failure paths) via a `trap EXIT` handler
+- `validate.sh` and `plan` subcommands do NOT write history (read-only subcommands stay read-only)
+- `seed.sh` may optionally append a lighter-weight seed record
+
+**Requirements:** TBD
+**Plans:** 0 plans
+
+Plans:
+- [ ] TBD (promote with /gsd:discuss-phase 999.2 when ready)
