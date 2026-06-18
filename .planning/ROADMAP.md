@@ -177,15 +177,16 @@ Plans:
 - Written to `<target-repo>/.coolify/provision-history.json` alongside `coolify.yaml` — not in the skill repo
 - Cumulative: each run appends a new top-level array entry; existing entries are never modified
 - `.coolify/` should be `.gitignore`d in the target repo (contains run state, not config); `init.sh` adds the entry if not already present
-- File capped at last N entries (configurable, default 20) to prevent unbounded growth
+- File capped at last 20 entries to prevent unbounded growth
 
 *Integration points:*
 - `provision.sh` writes the record on exit (both success and failure paths) via a `trap EXIT` handler
 - `validate.sh` and `plan` subcommands do NOT write history (read-only subcommands stay read-only)
-- `seed.sh` may optionally append a lighter-weight seed record
+- `seed.sh` does NOT write a history entry — history scoped to provision runs only
 
 **Requirements:** TBD
-**Plans:** 0 plans
+**Plans:** 2 plans
 
 Plans:
-- [ ] TBD (promote with /gsd:discuss-phase 999.2 when ready)
+- [ ] 999.2-01-PLAN.md — provision.sh: replace _abort_notice trap with _on_exit, add _write_provision_history, declare HIST_* outcome vars, set HIST_SUGGESTIONS_FILE before validate call
+- [ ] 999.2-02-PLAN.md — validate.sh: write stale_env_var/placeholder_value JSON to COOLIFY_HISTORY_SUGGESTIONS when set; init.sh: append .coolify/ to .gitignore
