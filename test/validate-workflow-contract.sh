@@ -28,6 +28,7 @@
 #   C12 Assert staging version step present with graceful skip (SMOKE-01)
 #   C13 Assert production version step present (SMOKE-03)
 #   C14 verify-promotion.needs includes build — TAG resolves at runtime (PROMOTE-01)
+#   C15 the weekly schedule never builds or deploys (build: if push; all deploys need build)
 #
 # Exit 0: all contract checks pass. Exit 1: at least one failed (all printed).
 
@@ -226,6 +227,31 @@ then
   pass "C14: verify-promotion.needs includes build — TAG resolves from needs.build.outputs.tag"
 else
   fail "C14: verify-promotion.needs missing build — TAG will be empty string at runtime"
+fi
+
+# C15 — the weekly schedule never builds or deploys (only drift-check runs on it)
+# Without this, the cron trigger rebuilt main and promoted it to production every week.
+if python3 - "$WF" <<'PY'
+import sys, yaml
+jobs = yaml.safe_load(open(sys.argv[1]))["jobs"]
+if "github.event_name == 'push'" not in str(jobs["build"].get("if", "")):
+    sys.exit("build is not limited to push")
+def reaches_build(name, seen=()):
+    needs = jobs[name].get("needs", [])
+    needs = [needs] if isinstance(needs, str) else needs
+    return "build" in needs or any(reaches_build(n, seen + (name,)) for n in needs if n not in seen)
+for name, job in jobs.items():
+    if name in ("build", "drift-check"):
+        continue
+    cond = str(job.get("if", ""))
+    if not reaches_build(name) or "always()" in cond or "cancelled()" in cond:
+        sys.exit(f"{name} could run without build")
+sys.exit(0)
+PY
+then
+  pass "C15: build runs on push only and every other job but drift-check depends on it"
+else
+  fail "C15: a scheduled run could build or deploy"
 fi
 
 # ── Summary ────────────────────────────────────────────────────────────────────
