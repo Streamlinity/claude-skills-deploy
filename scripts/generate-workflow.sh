@@ -84,6 +84,9 @@ permissions:
 
 jobs:
   build:
+    # Deploy only on push to main. The weekly schedule (drift-check) must never rebuild or
+    # deploy: every deploy job depends on build, so skipping build skips them all.
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     outputs:
       tag: \${{ steps.tag.outputs.short_sha }}

@@ -360,10 +360,10 @@ env_vars:
 - STALE_KEY_NOBODY_USES
 YAML
 
-V4_EC=0
+# Only the WARN text matters here; validate's exit code is not checked.
 V4_OUT=$(env PATH="$STUB_PATH" HOME="$V4_HOME" \
   COOLIFY_REGISTRY="$V4_HOME/.claude/coolify.json" \
-  bash "$VALIDATE_SH" "$V4_HOME/project/coolify.yaml" 2>&1) || V4_EC=0
+  bash "$VALIDATE_SH" "$V4_HOME/project/coolify.yaml" 2>&1) || true
 
 if echo "$V4_OUT" | grep -qiE "WARN|stale"; then
   pass "V4: output contains WARN or stale for undeclared key"
