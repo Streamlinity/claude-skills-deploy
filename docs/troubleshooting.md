@@ -139,7 +139,17 @@ gh api --method PATCH "/orgs/${GHCR_OWNER}/packages/container/my-image" -f visib
 
 This only needs to be done once per package (not per tag). Future pushes to the same package name inherit the public visibility.
 
-> **Alternative:** Configure a GHCR pull secret on your Coolify VPS (Settings → Registries). But making the package public is simpler for non-sensitive images.
+**Alternative for images that must stay private:** keep the package private and log the deploy host's Docker in to GHCR once with a read-only token. Coolify pulls with the host's Docker credentials.
+
+1. In GitHub, create a **classic** personal access token with only the `read:packages` scope, and an expiry (for example one year). Fine-grained tokens do not work for GHCR pulls.
+2. On the deploy host (the `ssh_host` or `deploy_ssh_host` in `coolify.json`), as the user Docker runs under (root on a default Coolify install):
+   ```bash
+   docker login ghcr.io -u <github-user>   # paste the token at the prompt; never on the command line
+   ```
+3. Test: `docker pull ghcr.io/<org>/<image>:<tag>`.
+4. Put the token's expiry in your calendar. When it expires, deploys fail with `unauthorized` until you log in again with a new token.
+
+Used by Streamlinity/retirement-decumulation, whose image holds no secrets but whose code is private. Neither provision nor the generated workflow needs to change.
 
 ---
 
@@ -395,3 +405,19 @@ docker exec <caddy-container> netstat -tlnp | grep LISTEN
 ```
 
 The Traefik label `traefik.http.services.<name>.loadbalancer.server.port=80` is then correct and no further label changes are needed.
+
+## Scheduled tasks (backups, cron jobs)
+
+### A Coolify Scheduled Task cannot see the app's secrets
+
+**Symptom:** a Scheduled Task such as `myapp backup` fails with missing settings (for example `DATABASE_URL must be set`), although the app itself starts fine.
+
+**Cause:** Coolify runs a Scheduled Task with `docker exec` in the running container. `docker exec` does not go through the image's ENTRYPOINT, so `doppler run` never runs and only `DOPPLER_TOKEN` is in the environment.
+
+**Fix:** start the task's command with Doppler: `doppler run -- myapp backup`. Do not pass `--fallback` here; the app's own process maintains the fallback file. The skill does not manage Scheduled Tasks. Create them in the Coolify UI (application → Scheduled Tasks) and record them in the repo's docs.
+
+## validate
+
+### `WARN: env_vars: KEY declared in coolify.yaml but not found in codebase (stale?)`
+
+The check searches the code for the upper-case key name. Settings libraries that read the environment by field name, such as pydantic-settings (`email_from: str` reads `EMAIL_FROM`), never spell the upper-case name, so the warning is a false positive. Check the settings class, and ignore the warning if the field is there.
