@@ -36,7 +36,8 @@ jobs:
     # Every other job needs this one. On the schedule it only says so (drift check only).
     # After CI: the commit must still be the tip of main (else: superseded, success, nothing
     # deployed), CI must have succeeded on that push, and a merged pull request must have
-    # made the commit. Checks out and builds workflow_run.head_sha, never github.sha.
+    # made the commit. Later jobs check out and build workflow_run.head_sha (the commit CI
+    # tested), never the run's own commit, which is whatever main points at now.
     runs-on: ubuntu-latest
     permissions:
       contents: read
