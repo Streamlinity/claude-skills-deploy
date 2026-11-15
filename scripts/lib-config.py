@@ -10,10 +10,16 @@
 #   python3 lib-config.py emit-dns-vars <yaml_path>
 #   python3 lib-config.py get-json-field <json_path> <server_alias> <field>
 #   python3 lib-config.py list-environments <yaml_path>
+#   python3 lib-config.py check-promotion <yaml_path>
 
+import re
 import sys
 import json
 import shlex
+
+# GitHub login: letters, digits and single inner hyphens, at most 39 characters.
+GITHUB_LOGIN = re.compile(r'^[A-Za-z0-9](?:[A-Za-z0-9]|-(?=[A-Za-z0-9])){0,38}$')
+MANUAL_ONLY_KEYS = ('ci_workflow', 'release_owners', 'smoke_command')
 
 
 def q(v):
@@ -76,9 +82,55 @@ def emit_yaml_workflow_vars(path):
         ('BUILD_DOCKERFILE',    build.get('dockerfile', './Dockerfile')),
         ('STAGING_APP_UUID',    ids.get('staging') or ''),
         ('PROD_APP_UUID',       ids.get('production') or ''),
+        # promotion: manual (see check-promotion and docs/schema.md)
+        ('PROMOTION',           d.get('promotion') or 'auto'),
+        ('CI_WORKFLOW',         d.get('ci_workflow') or 'CI'),
+        ('SMOKE_COMMAND',       d.get('smoke_command') or ''),
+        ('RELEASE_OWNERS',      ' '.join(str(o) for o in (d.get('release_owners') or []))),
     ]
     for k, v in pairs:
         print(f'{k}={q(v)}')
+
+
+def check_promotion(path):
+    # Validate the release options. Errors (exit 1) go to stderr as 'ERROR: ...';
+    # keys that only promotion: manual reads print 'WARN: ...' when set without it.
+    import yaml
+    d = yaml.safe_load(open(path)) or {}
+    errors, warnings = [], []
+    promotion = d.get('promotion', 'auto')
+    if promotion not in ('auto', 'manual'):
+        errors.append(f'ERROR: promotion must be auto or manual (got {promotion!r})')
+    if promotion == 'manual':
+        ci = d.get('ci_workflow')
+        if not isinstance(ci, str) or not ci.strip():
+            errors.append('ERROR: ci_workflow is required with promotion: manual '
+                          '(the name of the workflow that runs CI on main, e.g. CI)')
+        elif '${{' in ci or '\n' in ci:
+            errors.append('ERROR: ci_workflow must be a plain workflow name')
+        owners = d.get('release_owners')
+        if not isinstance(owners, list) or not owners:
+            errors.append('ERROR: release_owners is required with promotion: manual '
+                          '(a list of GitHub logins allowed to promote and roll back)')
+        else:
+            for o in owners:
+                if not isinstance(o, str) or not GITHUB_LOGIN.match(o):
+                    errors.append(f'ERROR: release_owners entry {o!r} is not a GitHub login')
+        smoke = d.get('smoke_command')
+        if smoke is not None:
+            if not isinstance(smoke, str) or '{url}' not in smoke:
+                errors.append('ERROR: smoke_command must be a string containing {url}')
+            elif '${{' in smoke:
+                errors.append('ERROR: smoke_command must not contain a GitHub Actions expression')
+    else:
+        for key in MANUAL_ONLY_KEYS:
+            if d.get(key) is not None:
+                warnings.append(f'WARN: {key} is ignored unless promotion: manual')
+    for w in warnings:
+        print(w, file=sys.stderr)
+    if errors:
+        print('\n'.join(errors), file=sys.stderr)
+        sys.exit(1)
 
 
 def list_environments(path):
@@ -160,6 +212,8 @@ if __name__ == '__main__':
         emit_dns_vars(sys.argv[2])
     elif cmd == 'list-environments':
         list_environments(sys.argv[2])
+    elif cmd == 'check-promotion':
+        check_promotion(sys.argv[2])
     elif cmd == 'get-json-field':
         get_json_field(sys.argv[2], sys.argv[3], sys.argv[4])
     else:

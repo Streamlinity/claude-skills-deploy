@@ -49,6 +49,18 @@ if ! ENV_LINES_RAW=$(python3 "$SCRIPT_DIR/lib-config.py" list-environments "$YAM
 fi
 mapfile -t ENV_LINES <<< "$ENV_LINES_RAW"
 
+# Release options: promotion: manual needs ci_workflow and release_owners (no safe default).
+if ! PROMO_LINES=$(python3 "$SCRIPT_DIR/lib-config.py" check-promotion "$YAML_PATH" 2>&1); then
+  while IFS= read -r _pline; do
+    case "$_pline" in
+      ERROR:*) fail "INVALID:coolify.yaml:${_pline#ERROR: }" ;;
+      *)       [ -z "$_pline" ] || echo "$_pline" >&2 ;;
+    esac
+  done <<< "$PROMO_LINES"
+elif [ -n "$PROMO_LINES" ]; then
+  echo "$PROMO_LINES" >&2
+fi
+
 if [ "$ERRORS" -gt 0 ]; then
   echo "" >&2
   echo "Stop: coolify.yaml schema errors above. Fix and re-run." >&2

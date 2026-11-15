@@ -588,5 +588,6 @@ echo "  ────────────────────────
 echo "  1. Set the GitHub Actions secret (if not already set):"
 echo "     gh secret set COOLIFY_API_KEY --body \"<your-coolify-api-key>\" --repo <owner/repo>"
 echo "  2. Commit and push:"
-echo "     git add coolify.yaml .github/workflows/deploy.yml && git push"
+echo "     git add coolify.yaml .github/workflows/ && git push"
+echo "     (promotion: manual also writes promote.yml and rollback.yml there)"
 echo "═══════════════════════════════════════════════════════════════════════════════"

@@ -2,6 +2,12 @@
 # generate-workflow.sh — Emit .github/workflows/deploy.yml from coolify.yaml.
 # Implements GHCR same-image promotion. Smoke test is the gate: staging pass → auto-promote to prod.
 #
+# promotion: manual (coolify.yaml) instead writes three workflows: deploy.yml (after CI passes
+# on a merge to main: gate, build, deploy staging only), promote.yml and rollback.yml (started
+# by a release owner). They are rendered by render-workflows.py from scripts/templates/ and
+# carry scripts/release-gate.sh inline. Without promotion: manual (the default, auto), the
+# output below is unchanged byte for byte (test/golden/deploy-auto.yml).
+#
 # build.context and build.dockerfile are read from coolify.yaml.
 # Defaults: context = '.' (repo root), dockerfile = './Dockerfile'.
 # For nested-app repos (e.g. ai-upskilling/skillmap), set build.context in coolify.yaml (e.g. ./skillmap).
@@ -55,6 +61,40 @@ fi
 # GHCR package name from the tag-stripped image path — REGISTRY_IMAGE may
 # carry a :tag suffix which must not leak into the ghcr-cleanup package name.
 PACKAGE=$(echo "$REGISTRY_IMAGE_NAME" | awk -F'/' '{print $3}')
+
+# Release options. Fails on an invalid value; warns about keys only promotion: manual reads.
+python3 "$SCRIPT_DIR/lib-config.py" check-promotion "$YAML_PATH"
+
+if [ "$PROMOTION" = "manual" ]; then
+  RW_SOURCE="$YAML_PATH" \
+  RW_CI_WORKFLOW="$CI_WORKFLOW" \
+  RW_RELEASE_OWNERS="$RELEASE_OWNERS" \
+  RW_SMOKE_COMMAND="$SMOKE_COMMAND" \
+  RW_COOLIFY_URL="$COOLIFY_URL" \
+  RW_STAGING_APP_UUID="$STAGING_APP_UUID" \
+  RW_PROD_APP_UUID="$PROD_APP_UUID" \
+  RW_STAGING_DOMAIN="$STAGING_DOMAIN" \
+  RW_PROD_DOMAIN="$PROD_DOMAIN" \
+  RW_HEALTH_CHECK_PATH="$HEALTH_CHECK_PATH" \
+  RW_REGISTRY_IMAGE_NAME="$REGISTRY_IMAGE_NAME" \
+  RW_BUILD_CONTEXT="$BUILD_CONTEXT" \
+  RW_BUILD_DOCKERFILE="$BUILD_DOCKERFILE" \
+  RW_PACKAGE="$PACKAGE" \
+  RW_RETENTION="$RETENTION" \
+    python3 "$SCRIPT_DIR/render-workflows.py" "$OUT_DIR"
+  for _wf in deploy.yml promote.yml rollback.yml; do
+    if grep -nE 'NEXT_PUBLIC_BASE_URL' "$OUT_DIR/$_wf" | grep -vE '^[0-9]+:\s*#' >/dev/null 2>&1; then
+      echo "ERROR: generated $_wf references NEXT_PUBLIC_BASE_URL outside of a comment — this breaks same-image promotion." >&2
+      exit 1
+    fi
+  done
+  echo "  promotion: manual — release owners: $RELEASE_OWNERS; the gate waits for workflow '$CI_WORKFLOW'"
+  echo "  deploy.yml: CI passed on a merge to main -> gate -> build -> staging app $STAGING_APP_UUID only"
+  echo "  promote.yml: by hand -> the image staging runs -> production app $PROD_APP_UUID, then clean-up (keep $RETENTION others)"
+  echo "  rollback.yml: by hand -> an image the environment ran before"
+  if [ -n "$SMOKE_COMMAND" ]; then echo "  smoke_command after each deploy: $SMOKE_COMMAND"; fi
+  exit 0
+fi
 
 mkdir -p "$OUT_DIR"
 
