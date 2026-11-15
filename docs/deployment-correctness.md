@@ -338,7 +338,8 @@ the target repo needs no extra file and `test/test-release-gate.sh` exercises th
    latest commit on `main` for a `workflow_run` run).
 4. **Overlapping merges.** A workflow-level concurrency group `staging` with
    `cancel-in-progress: false`: one staging deploy at a time, and GitHub replaces an older
-   *pending* run with the newer one. The staging job's first step repeats the tip check
+   *pending* run with the newer one. (The weekly schedule run uses the group `drift-check`
+   instead, so it never replaces a pending staging deploy.) The staging job's first step repeats the tip check
    immediately before it sets the image tag; a run superseded there stops, succeeds, deploys
    nothing and creates no record. The staging record is created only after that check.
 5. **Staging deploy**: set the tag, deploy and wait, health, version, `smoke_command`. The

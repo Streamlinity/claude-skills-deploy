@@ -27,8 +27,9 @@ permissions:
 
 # One staging deploy at a time, never cancelled part-way. GitHub replaces an older run
 # that is still pending with the newer one, so an older commit never deploys after a newer one.
+# The weekly drift check uses its own group, so it never replaces a pending staging deploy.
 concurrency:
-  group: staging
+  group: ${{ github.event_name == 'schedule' && 'drift-check' || 'staging' }}
   cancel-in-progress: false
 
 jobs:

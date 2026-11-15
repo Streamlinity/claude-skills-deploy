@@ -35,7 +35,8 @@
 #   M1  deploy.yml triggers only on workflow_run of ci_workflow (completed, main) and the schedule
 #   M2  no production app UUID or domain in deploy.yml outside drift-check
 #   M3  the gate is deploy.yml's first job and every other job needs it
-#   M4  deploy.yml has workflow-level concurrency group staging, cancel-in-progress false
+#   M4  deploy.yml has workflow-level concurrency group staging (drift-check for the
+#       schedule, so it never replaces a pending deploy), cancel-in-progress false
 #   M5  deploy-staging's first step re-checks the tip (stage_begin, which creates the
 #       record only after the check) and comes before the image tag is set
 #   M6  every checkout names its ref; deploy.yml builds and checks out workflow_run.head_sha;
@@ -401,8 +402,10 @@ check(jobs["drift-check"].get("if") == "github.event_name == 'schedule'",
       "M3c: drift-check runs on the schedule only")
 
 # M4
-check(dep.get("concurrency") == {"group": "staging", "cancel-in-progress": False},
-      "M4: deploy.yml concurrency group staging, cancel-in-progress false")
+check(dep.get("concurrency") == {
+          "group": "${{ github.event_name == 'schedule' && 'drift-check' || 'staging' }}",
+          "cancel-in-progress": False},
+      "M4: deploy.yml concurrency group staging (drift-check on the schedule), cancel-in-progress false")
 
 # M5
 stg = jobs["deploy-staging"]
