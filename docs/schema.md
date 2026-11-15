@@ -45,6 +45,22 @@ manually via the Coolify UI or API.
 | `deploy_server` | string | _empty_ | Optional. Name of a Coolify-registered server to deploy apps on. When absent, apps deploy on the Coolify host (server_name from coolify.json, defaulting to `localhost`). Set this when staging/production should run on a separately-registered VPS rather than the Coolify host. Example: `my-app-vps`. |
 | `port` | int | `3000` | TCP port your container exposes. `provision.sh` uses this for Coolify's health-check port binding. Set this when your app listens on any port other than 3000. | `8080` |
 | `health_check_path` | string | `/api/health` | HTTP path polled by Coolify's health check and by the CI smoke test. Change this if your app exposes health at a different URL (e.g. `/healthz`, `/health`, `/`). | `/healthz` |
+| `promotion` | `auto` \| `manual` | `auto` | How production gets a new image. `auto`: the generated `deploy.yml` deploys staging and then production on every push to `main` (unchanged). `manual`: a merge deploys **staging only**; production changes only through `promote.yml` and `rollback.yml`, started by hand by a release owner. See [Manual promotion](#manual-promotion). | `manual` |
+| `ci_workflow` | string | `CI` | `promotion: manual` only, and required with it. The `name:` of the workflow that runs CI on pushes to `main`; `deploy.yml` starts when that workflow completes. | `CI` |
+| `release_owners` | list of GitHub logins | _none_ | `promotion: manual` only, and required with it (there is no safe default). The people allowed to start a promotion or a rollback; the workflow gate refuses anyone else. Not a secret. | `[octocat]` |
+| `smoke_command` | string | _none_ | `promotion: manual` only. Run after each deploy's health and version checks, with `{url}` replaced by `https://<domain>`, from a checkout of the image's commit with `uv` installed. Without it, the jobs check health and version only. | `make smoke URL={url}` |
+
+### Manual promotion
+
+With `promotion: manual`, `generate-workflow.sh` writes three workflows instead of one:
+
+| File | Started by | Does |
+|------|-----------|------|
+| `deploy.yml` | `workflow_run` of `ci_workflow` on `main`, and the weekly schedule | Gate: the commit is still the tip of `main` (else it stops as superseded and succeeds), CI succeeded on that push, and a merged pull request made the commit. Then build, deploy staging, and record a `staging` deployment. The schedule runs the drift check only. |
+| `promote.yml` | A release owner (`workflow_dispatch`, optional `tag`) | Gate: release owner, the image staging runs now, a successful staging record. Re-checks staging if that record is over 24 hours old, deploys the same image to production, records it, tags `production` and `production-previous`, and cleans up old images. |
+| `rollback.yml` | A release owner (`workflow_dispatch`, `environment`, optional `tag`) | Puts back the image the environment ran before its current release, or a chosen tag that ran there, and records it. |
+
+`validate.sh` and the generator refuse `promotion: manual` without `ci_workflow` and `release_owners`. In `auto` mode, keys that only manual promotion reads produce a warning. No new secret: the workflows use `COOLIFY_API_KEY` as before and the built-in `GITHUB_TOKEN` for deployment records and packages. Details: [deployment-correctness.md](deployment-correctness.md#manual-promotion-and-rollback).
 
 ### Optional DNS block
 

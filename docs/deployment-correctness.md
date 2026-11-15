@@ -308,3 +308,87 @@ dependency — they take effect immediately on regeneration.
 3. **Layer 1** (digest logging) — add alongside Layer 4 for full traceability
 4. **Layer 3** last (runtime identity) — requires Dockerfile and health endpoint changes
    per repo; make graceful-skip the default so adoption is incremental
+
+---
+
+## Manual promotion and rollback
+
+`promotion: manual` in `coolify.yaml` (see [schema.md](schema.md#manual-promotion)) separates
+the two halves of same-image promotion. A merge deploys staging only; production changes
+only when a release owner starts `promote.yml` or `rollback.yml`. The image is still built
+once and the same digest reaches production.
+
+All gate logic lives in `scripts/release-gate.sh`. The generator inlines it into the first
+step of each job (written to `$RUNNER_TEMP/release-gate.sh` and sourced by later steps), so
+the target repo needs no extra file and `test/test-release-gate.sh` exercises the same text.
+
+### Merge: deploy.yml
+
+1. **Trigger.** `workflow_run` of `ci_workflow`, completed, on `main`, plus the weekly
+   schedule (drift check only). It runs only after CI on the exact merge commit finished.
+2. **Gate, in this order.** (a) The commit (`workflow_run.head_sha`) must still be the tip
+   of `main`; otherwise the run stops as *superseded* and succeeds without deploying,
+   whatever CI concluded. This comes first because CI cancels an older run on `main` when a
+   newer one starts, and that cancelled run must not show as a failed deploy. (b) CI's run
+   must be a `push` to `main` with conclusion `success`. (c) A merged pull request must have
+   made the commit (`GET /commits/{sha}/pulls`, `merge_commit_sha` equal to the commit), so a
+   direct push to `main` never deploys. There is no bypass input; if GitHub's API is down
+   the gate fails closed.
+3. **Build** checks out and builds `workflow_run.head_sha`, never `github.sha` (which is the
+   latest commit on `main` for a `workflow_run` run).
+4. **Overlapping merges.** A workflow-level concurrency group `staging` with
+   `cancel-in-progress: false`: one staging deploy at a time, and GitHub replaces an older
+   *pending* run with the newer one. The staging job's first step repeats the tip check
+   immediately before it sets the image tag; a run superseded there stops, succeeds, deploys
+   nothing and creates no record. The staging record is created only after that check.
+5. **Staging deploy**: set the tag, deploy and wait, health, version, `smoke_command`. The
+   staging deployment record goes `in_progress`, then `success` or `failure`.
+
+### Promotion: promote.yml
+
+1. **Gate**: the person who started the run (`github.triggering_actor`) is in
+   `release_owners`; the tag (input, or empty for "what staging runs now") is the image
+   staging runs now, read from Coolify; it has a successful staging record; production does
+   not already run it.
+2. **Staging re-check** (health, version, `smoke_command`) unless the staging record's
+   success is under 24 hours old.
+3. **Production deploy**, with a production record (kind `promote`) created first and set to
+   `success` or `failure` at the end. A failure says how to roll back.
+4. **Clean-up**, after a successful promotion only: tags the deployed image `production` and
+   the replaced one `production-previous` (`docker buildx imagetools create`; the digest does
+   not change), then runs `actions/delete-package-versions` keeping the newest
+   `retention_tags` other versions. `ignore-versions` matches the version *name*, which for a
+   container is its digest, not its tags. So the job resolves `production`,
+   `production-previous` and the current staging tag to their digests and the digests of the
+   manifests inside them (platform and attestation manifests, which GHCR lists as untagged
+   versions) and passes them as one anchored regex. `deploy.yml` never deletes images.
+
+`promote.yml` and `rollback.yml` share the concurrency group `production`, not cancelled.
+
+### Rollback: rollback.yml
+
+Inputs `environment` (`production` default, or `staging`) and an optional `tag`.
+
+- With no tag: if the environment runs the image of its newest successful record, the
+  target is that record's `replaced_tag` (works from the first promotion). If it runs
+  something else (a later release failed part-way), the target is the newest successful
+  record's image.
+- A chosen tag must be an image that ran there: it has a successful record in that
+  environment or is the `replaced_tag` of one. The image must still be in the registry.
+- Same release-owner check; no CI or merged-PR check (the image passed them before).
+- Deploy, health, version, `smoke_command`, record kind `rollback`.
+
+### Deployment records
+
+GitHub deployment records, environments `staging` and `production`. Payload: `image_tag`,
+`digest`, `kind` (`merge`, `promote`, `rollback`), `started_by`, `replaced_tag`, `run_url`.
+Statuses go `in_progress`, then `success` or `failure`, created with `auto_inactive: false`
+so earlier successful records stay successful; a record's state is its newest status that
+is not `inactive`. The workflows use the built-in `GITHUB_TOKEN` with per-job permissions
+(`deployments`, `packages`, `pull-requests`, `contents`).
+
+### Drift
+
+The weekly `drift-check` keeps INV-01 and adds the manual-promotion form of INV-04: it fails
+if production's Coolify tag differs from its newest successful production record (someone
+changed production outside the workflows). See [invariants.md](invariants.md).

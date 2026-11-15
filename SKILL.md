@@ -66,6 +66,7 @@ annotation to change provisioning behaviour today.
 5. **Write coolify_app_ids back to coolify.yaml** (consumed by `generate-workflow.sh` to embed app UUIDs in `deploy.yml`; provisioning never reads it back — every run re-resolves by name)
 
 6. **Done.** `provision.sh` does NOT trigger an initial deploy. The first deploy is fired by pushing to `main`, which activates the generated `.github/workflows/deploy.yml` (build → GHCR → deploy-staging → smoke-test → deploy-production). To redeploy manually, push any commit to `main` or trigger the workflow from the GitHub Actions UI.
+   With `promotion: manual` in `coolify.yaml`, the generator instead writes `deploy.yml` (after CI passes on a merge to `main`: gate → build → deploy-staging only), `promote.yml` and `rollback.yml` (started by hand by a `release_owners` member). See `docs/schema.md#manual-promotion`. Claude never starts, re-runs or dispatches `promote.yml` or `rollback.yml` for a user; the user starts them.
 
 ## init_cicd flow
 

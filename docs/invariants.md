@@ -11,7 +11,8 @@ invariants are actively enforced by machine checks and repaired by provision.
 | **Check (advisory)** | `validate.sh` | Warns about violations — exits 0 so provision can fix them |
 | **Enforce (fix)** | `provision.sh` | Removes or repairs violations on every run |
 | **Monitor (continuous)** | `deploy.yml` drift-check job | Fails the weekly CI job if a violation is detected in a live app |
-| **Assert (per-push)** | `deploy.yml` verify-promotion job | Fails CI if staging ≠ production image tag |
+| **Assert (per-push)** | `deploy.yml` verify-promotion job | Fails CI if staging ≠ production image tag (`promotion: auto`) |
+| **Gate (per-release)** | `promote.yml` / `rollback.yml` gate jobs | Refuse to deploy an image without a successful staging record, or one the environment never ran (`promotion: manual`) |
 
 The weekly CI job in the generated `deploy.yml` (`drift-check`, schedule Monday 8am UTC)
 provides the continuous monitoring layer — it detects drift between provision runs without
@@ -109,6 +110,20 @@ not what is actually running in the container.
 
 **Not affected by**: Doppler secret changes, application config updates, drift-check schedule runs,
 or redeployments that do not change the tag value.
+
+**Under `promotion: manual`** staging and production are on different images between
+promotions by design, so the rule becomes: *production runs an image with a successful
+staging deployment record, and the image of its newest successful production record.*
+
+- `promote.yml` gate → refuses a tag that is not the image staging runs now or has no
+  successful `staging` deployment record; production then gets that same tag and digest.
+- `rollback.yml` gate → refuses a tag production never ran (no successful `production`
+  record has it, and none replaced it). Every such image was promoted, so it passed staging.
+- `deploy.yml` drift-check (weekly) → fails if production's Coolify `docker_registry_image_tag`
+  differs from the newest successful `production` deployment record: someone changed
+  production outside `promote.yml` and `rollback.yml`. Fix: promote, or roll back to the
+  intended tag.
+- There is no verify-promotion job: `deploy.yml` never touches production.
 
 ---
 
